@@ -52,7 +52,7 @@ private:
     void setPiece (Board::Pos pos, Board::Piece piece);
     void switchPlayer ();
     bool isPieceBetween (Board::Pos a, Board::Pos b);
-    bool isValidPawnMove (Board::Move move);
+    bool isValidPawnMove (Board::Move move, bool real);
     bool isInsideBoard (Board::Pos pos);
 
 public:
@@ -62,7 +62,7 @@ public:
     int doMove (Board::Move move); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
     bool isCheckmate (Board::Player player);
     bool isCheck (Board::Player player);
-    bool isLegalMove (Board::Move move);
+    bool isLegalMove (Board::Move move, bool real);
     std::vector<Board::Move> getLegalMoves(Board::Player player);
     void undoMove ();
     void reset ();

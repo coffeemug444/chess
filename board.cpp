@@ -62,8 +62,7 @@ int Board::doMove (Board::Move move) {
             return -1;
         }
     }
-    if (!Board::isLegalMove(move)) {
-        fprintf(stderr, "Invalid move: The specified piece cannot move like that\n");
+    if (!Board::isLegalMove(move, true)) {
         return -1;
     }
 
@@ -298,7 +297,7 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
 // are within the range of the board, if the move is trying to capture a piece
 // of the same colour, if the shape of the move is correct for that piece,
 // and if the move will leave the player in check or not
-bool Board::isLegalMove (Board::Move move) {
+bool Board::isLegalMove (Board::Move move, bool real) {
     if (getPiece(move.startPos) != move.piece) {
         return false;
     }
@@ -323,18 +322,19 @@ bool Board::isLegalMove (Board::Move move) {
     int dy = move.startPos.y - move.endPos.y;
 
     if (dx == 0 && dy == 0) {
-        // movement must be non-zero
+        if (real) fprintf(stderr, "Invalid move: Movement must be non-zero\n");
         return false;
     }
     
     if ((move.piece >= BK && move.piece <= BP) && (move.piece >= WK && move.piece <= WP)) {
-        // cannot capture your own piece
+        if (real) fprintf(stderr, "Invalid move: You cannot capture your own piece\n");
         return false;
     }
 
     if (move.piece == BK || move.piece == WK) {
         // king is moving
         if (abs(dx) > 1 || abs(dy) > 1) {
+            if (real) fprintf(stderr, "Invalid move: King can only move distance 1\n");
             return false;
         }
 
@@ -346,11 +346,12 @@ bool Board::isLegalMove (Board::Move move) {
         if (dx != 0 && dy != 0) {
             // if it is not moving in a straight line
             if (abs(dx) != abs(dy)) {
-                // if it is not moving in an exact diagonal
+                if (real) fprintf(stderr, "Invalid move: Queen is not moving in a straight or diagonal line\n");
                 return false;
             }
         }
         if (isPieceBetween(move.startPos, move.endPos)) {
+            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
             return false;
         }
 
@@ -361,10 +362,11 @@ bool Board::isLegalMove (Board::Move move) {
     if (move.piece == BB || move.piece == WB) {
         // bishop is moving
         if (abs(dx) != abs(dy)) {
-            // if it is not moving in an exact diagonal
+            if (real) fprintf(stderr, "Invalid move: Rook is not moving in a diagonal line\n");
             return false;
         }
         if (isPieceBetween(move.startPos, move.endPos)) {
+            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
             return false;
         }
 
@@ -375,7 +377,7 @@ bool Board::isLegalMove (Board::Move move) {
         // knight is moving
         if (abs(dx) != 1 && abs(dy) != 2) {
             if (abs(dy) != 1 && abs(dx) != 2) {
-                // not moving in either L shape
+                if (real) fprintf(stderr, "Invalid move: Knight is not moving in L shape\n");
                 return false;
             }
         }
@@ -388,7 +390,7 @@ bool Board::isLegalMove (Board::Move move) {
         if (dx != 0) {
             // if moving in x direction
             if (dy != 0) {
-                // if also moving in y direction
+                if (real) fprintf(stderr, "Invalid move: Rook is not moving in straight line\n");
                 return false;
             }
         }
@@ -397,7 +399,7 @@ bool Board::isLegalMove (Board::Move move) {
     }
 
     if (move.piece == WP || move.piece == BP) {
-        if (!isValidPawnMove(move)) {
+        if (!isValidPawnMove(move, real)) {
             return false;
         }
     }
@@ -431,6 +433,7 @@ bool Board::isLegalMove (Board::Move move) {
         player == BLACK;
     }
     if (Board::isCheck(player)) {
+        if (real) fprintf(stderr, "Invalid move: Move leaves king in check\n");
         isValid = false;
     }
     undoMove();
@@ -439,7 +442,7 @@ bool Board::isLegalMove (Board::Move move) {
 
 // checks to see if the current move is by a pawn and is
 // a valid move.
-bool Board::isValidPawnMove (Board::Move move) {
+bool Board::isValidPawnMove (Board::Move move, bool real) {
     if (!(move.piece == WP || move.piece == BP)) {
         // piece moving is not a pawn
         return false;
@@ -450,17 +453,17 @@ bool Board::isValidPawnMove (Board::Move move) {
     
     if (abs(dy) > 2 || abs(dx) > 1) {
         // pawn is moving too far in x or y direction
+        if (real) fprintf(stderr, "Invalid move: Pawn moves too far\n");
         return false;
     }
     if (abs(dy) == 2) {
         if (abs(dx) != 0) {
             // pawn cannot move in x direction if moving 2 in y
+            if (real) fprintf(stderr, "Invalid move: Pawn moves too far\n");
             return false;
         }
 
-        if (isPieceBetween(move.startPos, move.endPos)) {
-            return false;
-        }
+        
 
         // these two checks are okay to use abs(dy). if the pawn 
         // moves two from the starting position it will have either
@@ -468,15 +471,22 @@ bool Board::isValidPawnMove (Board::Move move) {
         // not have happened if this function is being called)
         if (move.piece == WP && move.startPos.y != 2) {
             // pawn can only move 2 forward from starting position
+            if (real) fprintf(stderr, "Invalid move: Pawn can only move 2 forward from starting position\n");
             return false;
         }
         if (move.piece == BP && move.startPos.y != 7) {
             // pawn can only move 2 forward from starting position
+            if (real) fprintf(stderr, "Invalid move: Pawn can only move 2 forward from starting position\n");
+            return false;
+        }
+        if (isPieceBetween(move.startPos, move.endPos)) {
+            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
             return false;
         }
     }
     if ((move.piece == WP && dy < 1) || (move.piece == BP && dy > -1)) {
         // pawn must move forward
+        if (real) fprintf(stderr, "Invalid move: Pawn must move forward\n");
         return false;
     }
     // piece has moved exactly 1 or 2 spaces forward
@@ -484,6 +494,7 @@ bool Board::isValidPawnMove (Board::Move move) {
     if (dx == 0) {
         if (getPiece(move.endPos) != EM || move.taken != EM) {
             // pawn cannot capture by moving directly forward
+            if (real) fprintf(stderr, "Invalid move: Pawn cannot capture by moving directly forward\n");
             return false;
         } 
         // pawn is moving forward exactly 1 or 2 spaces with 
@@ -501,39 +512,46 @@ bool Board::isValidPawnMove (Board::Move move) {
 
             Board::Move lastMove = moves_.back();
 
+            bool validEnPassant = true;
+
             if (abs(lastMove.startPos.y - lastMove.endPos.y) != 2) {
                 // if the previous move was not a dy of 2
-                return false;
+                validEnPassant = false;
             }
             if ((lastMove.endPos.x != enPassantPlace.x) || (lastMove.endPos.y != enPassantPlace.y)) {
                 // if the previous move did not land on place of en passant capture
-                return false;
+                validEnPassant = false;
             }
 
             if (move.piece == WP) {
                 if (move.taken != BP) {
                     // if the taken piece is not pawn of opposite colour
-                    return false;
+                    validEnPassant = false;
                 }
                 if (lastMove.piece != BP) {
                     // if the previous move was not opposite colour pawn moving
-                    return false;
+                    validEnPassant = false;
                 }
             } else if (move.piece == BP) {
                 if (move.taken != BP) {
                     // if the taken piece is not pawn of opposite colour
-                    return false;
+                    validEnPassant = false;
                 }
                 if (lastMove.piece != BP) {
                     // if the previous move was not opposite colour pawn moving
-                    return false;
+                    validEnPassant = false;
                 }
+            }
+            if (!validEnPassant) {
+                if (real) fprintf(stderr, "Invalid move: Pawn cannot move like that\n");
+                return false;
             }
             // all checks passed, move was a valid en passant
         } else {
             // capture is not an en passant
             if (getPiece(move.endPos) != move.taken) {
                 // piece attempting to be captured is not in the right position
+                if (real) fprintf(stderr, "Invalid move: Pawn attempted capture but piece was not in position\n");
                 return false;
             }
             // pawn is moving diagonally exactly 1 space, and is moving to capture
@@ -608,7 +626,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                 if (isInsideBoard(pos)) {
                     Board::Piece take = getPiece(pos);
                     Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
-                    if (isLegalMove(move)) {
+                    if (isLegalMove(move, false)) {
                         moves.push_back(move);
                     }
                 }
@@ -631,7 +649,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     if (isInsideBoard(pos[j])) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move)) {
+                        if (isLegalMove(move, false)) {
                             moves.push_back(move);
                         }
                     }
@@ -651,7 +669,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     if (isInsideBoard(pos[j])) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move)) {
+                        if (isLegalMove(move, false)) {
                             moves.push_back(move);
                         }
                     }
@@ -667,7 +685,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                 if (isInsideBoard(pos)) {
                     Board::Piece take = getPiece(pos);
                     Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
-                    if (isLegalMove(move)) {
+                    if (isLegalMove(move, false)) {
                         moves.push_back(move);
                     }
                 }
@@ -686,7 +704,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     if (isInsideBoard(pos[j])) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move)) {
+                        if (isLegalMove(move, false)) {
                             moves.push_back(move);
                         }
                     }
@@ -708,7 +726,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
             Board::Piece take = getPiece(pos);
             move.endPos = pos;
             move.taken = take;
-            if (isLegalMove(move)) {
+            if (isLegalMove(move, false)) {
                 moves.push_back(move);
             }
             if (pp.piece == WP) {
@@ -719,7 +737,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
             take = getPiece(pos);
             move.endPos = pos;
             move.taken = take;
-            if (isLegalMove(move)) {
+            if (isLegalMove(move, false)) {
                 moves.push_back(move);
             }
             if (pp.piece == WP) {
@@ -737,7 +755,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     take = WP;
                 }
             }
-            if (isLegalMove(move)) {
+            if (isLegalMove(move, false)) {
                 moves.push_back(move);
             }
             pos.x -= 2;
@@ -750,7 +768,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     take = WP;
                 }
             }
-            if (isLegalMove(move)) {
+            if (isLegalMove(move, false)) {
                 moves.push_back(move);
             }
         }

@@ -18,6 +18,12 @@ void updateSprites(std::vector <sf::Sprite> *sprites, sf::Texture *piecesTex, sf
     }
 }
 
+typedef struct SelectedPiece {
+    bool selected;
+    Board::Piece piece;
+    Board::Pos pos;
+} SelectedPiece;
+
 int main (int argc, char **argv) {
     sf::RenderWindow window(sf::VideoMode(360, 360), "Chess");
     sf::Texture boardTex;
@@ -47,22 +53,54 @@ int main (int argc, char **argv) {
     updateSprites(&sprites, &piecesTex, pieceRects, board);
     
 
+    SelectedPiece selectedPiece = {.selected = false};
+    sf::RectangleShape selection;
+    selection.setSize(sf::Vector2f(45.f, 45.f));
+    selection.setFillColor(sf::Color(0x7dff7d64)); // a nice transparent green
     while (window.isOpen())
     {
         sf::Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed)
+            if (event.type == sf::Event::Closed) {
                 window.close();
+            }
+            if (event.type == sf::Event::MouseButtonPressed) {
+                sf::Mouse::Button button = event.mouseButton.button;
+                if (button == sf::Mouse::Button::Right) {
+                    selectedPiece.selected = false;
+                }
+                if (button == sf::Mouse::Button::Left) {
+                    Board::Pos pos;
+                    pos.x = 1 + (event.mouseButton.x / 45);
+                    pos.y = 8 - (event.mouseButton.y / 45);
+                    Board::Piece piece = board->getPiece(pos);
+                    if (selectedPiece.selected) {
+                        Board::Move move = {.piece = selectedPiece.piece, .startPos = selectedPiece.pos, .endPos = pos, .taken = piece};
+                        selectedPiece.selected = false;
+                        board->doMove(move);
+                        updateSprites(&sprites, &piecesTex, pieceRects, board);
+                    } else {
+                        selectedPiece.selected = true;
+                        selectedPiece.piece = piece;
+                        selectedPiece.pos = pos;
+                        selection.setPosition(45.f * (pos.x - 1), 45.f * (8 - pos.y));
+                    }
+                } 
+            }
         }
 
         window.clear();
-        window.draw(boardSprite);
         
+        window.draw(boardSprite);
+
         for (sf::Sprite sprite : sprites) {
             window.draw(sprite);
         }
         
+        if (selectedPiece.selected) {
+            window.draw(selection);
+        }
         window.display();
     }
 
