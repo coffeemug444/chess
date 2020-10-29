@@ -249,6 +249,9 @@ bool Board::isLegalMove (Board::Move move) {
     }
 }
 
+// checks to see if the current move is by a pawn and is
+// a valid move. Will change the board state by capturing
+// the piece if the move is a valid en passant
 bool Board::isValidPawnMove (Board::Move move) {
     if (!(move.piece == WP || move.piece == BP)) {
         // piece moving is not a pawn
@@ -299,11 +302,10 @@ bool Board::isValidPawnMove (Board::Move move) {
         // pawn is moving forward exactly 1 or 2 spaces with 
         // nothing in the way, and is not trying to capture 
         // anything. This is a valid move
-        return true;
     }
     
     if (abs(dx) == 1) {
-        // pawn must capture correctly
+        // pawn must capture correctly (to reach this point abs(dy) will equal 1)
         if (getPiece(move.endPos) == EM) {
             // player must attempt en passant
             Pos enPassantPlace;
@@ -341,12 +343,15 @@ bool Board::isValidPawnMove (Board::Move move) {
                 }
             }
             // all checks passed, move was a valid en passant
+            setPiece(enPassantPlace, EM);
         } else {
             // capture is not an en passant
             if (getPiece(move.endPos) != move.taken) {
                 // piece attempting to be captured is not in the right position
                 return false;
             }
+            // pawn is moving diagonally exactly 1 space, and is moving to capture
+            // the correct piece. This is a valid capture
         }
     }
 
@@ -376,4 +381,13 @@ void Board::undoMove () {
     states_.pop_back();
 
     Board::switchPlayer();
+}
+
+void Board::getState(Board::Piece state [16][16]) {
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            Pos pos = {.x = i, .y = j};
+            state[i][j] = getPiece(pos);
+        }
+    }
 }
