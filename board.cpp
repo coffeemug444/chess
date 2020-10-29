@@ -77,6 +77,13 @@ int Board::doMove (Board::Move move) {
 
     moves_.push_back(move);
     states_.push_back(state_);
+    
+    if (getPiece(move.endPos) == EM) {
+        // have already verified this is a valid move, there must have been
+        // an en passant.
+        Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
+        Board::setPiece(pos, EM);
+    }
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
     if (move.piece == WP && move.endPos.y == 8) {
@@ -84,6 +91,7 @@ int Board::doMove (Board::Move move) {
     } else if (move.piece == BP && move.endPos.y == 1) {
         Board::setPiece(move.endPos, BQ);
     }
+    
     Board::switchPlayer();
     if (Board::isCheckmate() == turn_) {
         fprintf(stderr, "Invalid move: Cannot move into check or checkmate\n");
@@ -256,8 +264,7 @@ bool Board::isLegalMove (Board::Move move) {
 }
 
 // checks to see if the current move is by a pawn and is
-// a valid move. Will change the board state by capturing
-// the piece if the move is a valid en passant.
+// a valid move.
 bool Board::isValidPawnMove (Board::Move move) {
     if (!(move.piece == WP || move.piece == BP)) {
         // piece moving is not a pawn
@@ -349,7 +356,6 @@ bool Board::isValidPawnMove (Board::Move move) {
                 }
             }
             // all checks passed, move was a valid en passant
-            setPiece(enPassantPlace, EM);
         } else {
             // capture is not an en passant
             if (getPiece(move.endPos) != move.taken) {
@@ -392,7 +398,7 @@ void Board::undoMove () {
 void Board::getState(Board::Piece state [16][16]) {
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
-            Board::Pos pos = {.x = i, .y = j};
+            Board::Pos pos = {.x = i + 1, .y = j + 1};
             state[i][j] = getPiece(pos);
         }
     }

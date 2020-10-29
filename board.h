@@ -59,7 +59,7 @@ private:
 public:
     Board ();
     void getState (Board::Piece state [16][16]);   // copies the current state of the board into the array pointed to
-    Board::Piece getPiece (Board::Pos pos); // get piece at pos
+    Board::Piece getPiece (Board::Pos pos); // get piece at pos where [x, y] : {1, 8}
     int doMove (Board::Move move); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
     Board::Player isCheckmate ();
     void undoMove ();
