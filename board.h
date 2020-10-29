@@ -44,24 +44,17 @@ public:
     } Move;
 
 private:
-    Piece starting_board_ [16][16] = { {WR, WP, EM, EM, EM, EM, BP, BR},
-                                       {WN, WP, EM, EM, EM, EM, BP, BN},
-                                       {WB, WP, EM, EM, EM, EM, BP, BB},
-                                       {WQ, WP, EM, EM, EM, EM, BP, BQ},
-                                       {WK, WP, EM, EM, EM, EM, BP, BK},
-                                       {WB, WP, EM, EM, EM, EM, BP, BB},
-                                       {WN, WP, EM, EM, EM, EM, BP, BN},
-                                       {WR, WP, EM, EM, EM, EM, BP, BR}
-                                     };
-    Board::Piece state_ [16][16];  // 16*16 array of the board
+    std::vector <std::vector <Board::Piece>> state_;  // 16*16 array of the board
     Board::Player turn_;            // current players turn
 
     std::vector <Move> moves_;
+    std::vector <std::vector <std::vector <Board::Piece>>> states_; // vector of all previous board states
 
     void setPiece (Board::Pos pos, Board::Piece piece);
     void switchPlayer ();
     bool isLegalMove (Board::Move move);
     bool isPieceBetween (Board::Pos a, Board::Pos b);
+    bool isValidPawnMove (Board::Move move);
 
 public:
     Board ();

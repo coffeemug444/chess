@@ -8,12 +8,18 @@ Board::Board () {
 
 void Board::reset () {
     turn_ = WHITE;
-
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 16; j++) {
-            state_ [i][j] = starting_board_ [i][j];
-        }
-    }
+    state_.clear();
+    state_ = { {WR, WP, EM, EM, EM, EM, BP, BR},
+               {WN, WP, EM, EM, EM, EM, BP, BN},
+               {WB, WP, EM, EM, EM, EM, BP, BB},
+               {WQ, WP, EM, EM, EM, EM, BP, BQ},
+               {WK, WP, EM, EM, EM, EM, BP, BK},
+               {WB, WP, EM, EM, EM, EM, BP, BB},
+               {WN, WP, EM, EM, EM, EM, BP, BN},
+               {WR, WP, EM, EM, EM, EM, BP, BR}
+             };
+    moves_.clear();
+    states_.clear();
 }
 
 Board::Piece Board::getPiece (Board::Pos pos) {
@@ -49,9 +55,12 @@ int Board::doMove (Board::Move move) {
         fprintf(stderr, "Invalid move: Selected end position is outside the range of the board [x, y] : {1, 8}\n");
         return -1;
     }
-    if (getPiece(move.endPos) != move.taken) {
-        fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified\n");
-        return -1;
+
+    if (move.piece != WP && move.piece != BP) {
+        if (getPiece(move.endPos) != move.taken) {
+            fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified\n");
+            return -1;
+        }
     }
     if (turn_ == WHITE && (move.taken <= WP) && (move.taken >= WK)) {
         fprintf(stderr, "Invalid move: You cannot take your own piece\n");
@@ -67,15 +76,15 @@ int Board::doMove (Board::Move move) {
     }
 
     moves_.push_back(move);
+    states_.push_back(state_);
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
     Board::switchPlayer();
     if (Board::isCheckmate() == turn_) {
-        fprintf(stderr, "Invalid move: Cannot move into checkmate\n");
+        fprintf(stderr, "Invalid move: Cannot move into check or checkmate\n");
         Board::undoMove();
         return -1;
-    } else if (Board::isCheckmate() != EMPTY)
-    {
+    } else if (Board::isCheckmate() != EMPTY) {
         // last player to move won the game
         return 1;
     }
@@ -168,15 +177,181 @@ bool Board::isLegalMove (Board::Move move) {
         if (abs(dx) > 1 || abs(dy) > 1) {
             return false;
         }
+
+        // moving within distance 1 of startPos
         return true;
     }
 
     if (move.piece == BQ || move.piece == WQ) {
         // queen is moving
-        if (dx == 0) {
+        if (dx != 0 && dy != 0) {
+            // if it is not moving in a straight line
+            if (abs(dx) != abs(dy)) {
+                // if it is not moving in an exact diagonal
+                return false;
+            }
+        }
+        if (isPieceBetween(move.startPos, move.endPos)) {
+            return false;
+        }
 
+        // moving in a straight line or diagonal, no pieces in the
+        // way
+        return true;
+    }
+
+    if (move.piece == BB || move.piece == WB) {
+        // bishop is moving
+        if (abs(dx) != abs(dy)) {
+            // if it is not moving in an exact diagonal
+            return false;
+        }
+        if (isPieceBetween(move.startPos, move.endPos)) {
+            return false;
+        }
+
+        // moving in a diagonal, no pieces in the way
+        return true;
+    }
+
+    if (move.piece == BN || move.piece == WN) {
+        // knight is moving
+        if (abs(dx) != 1 && abs(dy) != 2) {
+            if (abs(dy) != 1 && abs(dx) != 2) {
+                // not moving in either L shape
+                return false;
+            }
+        }
+
+        // moving in L shape
+        return true;
+    }
+
+    if (move.piece == BR || move.piece == WR) {
+        // rook is moving
+        if (dx != 0) {
+            // if moving in x direction
+            if (dy != 0) {
+                // if also moving in y direction
+                return false;
+            }
+        }
+
+        // moving in a straight line
+        return true;
+    }
+
+    if (move.piece == WP || move.piece == BP) {
+        if (!isValidPawnMove(move)) {
+            return false;
+        }
+        return true;
+    }
+}
+
+bool Board::isValidPawnMove (Board::Move move) {
+    if (!(move.piece == WP || move.piece == BP)) {
+        // piece moving is not a pawn
+        return false;
+    }
+
+    int dx = move.startPos.x - move.endPos.x;
+    int dy = move.startPos.y - move.endPos.y;
+    
+    if (abs(dy) > 2 || abs(dx) > 1) {
+        // pawn is moving too far in x or y direction
+        return false;
+    }
+    if (abs(dy) == 2) {
+        if (abs(dx) != 0) {
+            // pawn cannot move in x direction if moving 2 in y
+            return false;
+        }
+
+        if (isPieceBetween(move.startPos, move.endPos)) {
+            return false;
+        }
+
+        // these two checks are okay to use abs(dy). if the pawn 
+        // moves two from the starting position it will have either
+        // moved two forward or moved outside the board (which will
+        // not have happened if this function is being called)
+        if (move.piece == WP && move.startPos.y != 2) {
+            // pawn can only move 2 forward from starting position
+            return false;
+        }
+        if (move.piece == BP && move.startPos.y != 7) {
+            // pawn can only move 2 forward from starting position
+            return false;
         }
     }
+    if ((move.piece == WP && dy < 1) || (move.piece == BP && dy > -1)) {
+        // pawn must move forward
+        return false;
+    }
+    // piece has moved exactly 1 or 2 spaces forward
+
+    if (dx == 0) {
+        if (getPiece(move.endPos) != EM || move.taken != EM) {
+            // pawn cannot capture by moving directly forward
+            return false;
+        } 
+        // pawn is moving forward exactly 1 or 2 spaces with 
+        // nothing in the way, and is not trying to capture 
+        // anything. This is a valid move
+        return true;
+    }
+    
+    if (abs(dx) == 1) {
+        // pawn must capture correctly
+        if (getPiece(move.endPos) == EM) {
+            // player must attempt en passant
+            Pos enPassantPlace;
+            enPassantPlace.x = move.endPos.x;
+            enPassantPlace.y = move.startPos.y;
+
+            Board::Move lastMove = moves_.back();
+
+            if (abs(lastMove.startPos.y - lastMove.endPos.y) != 2) {
+                // if the previous move was not a dy of 2
+                return false;
+            }
+            if ((lastMove.endPos.x != enPassantPlace.x) || (lastMove.endPos.y != enPassantPlace.y)) {
+                // if the previous move did not land on place of en passant capture
+                return false;
+            }
+
+            if (move.piece == WP) {
+                if (move.taken != BP) {
+                    // if the taken piece is not pawn of opposite colour
+                    return false;
+                }
+                if (lastMove.piece != BP) {
+                    // if the previous move was not opposite colour pawn moving
+                    return false;
+                }
+            } else if (move.piece == BP) {
+                if (move.taken != BP) {
+                    // if the taken piece is not pawn of opposite colour
+                    return false;
+                }
+                if (lastMove.piece != BP) {
+                    // if the previous move was not opposite colour pawn moving
+                    return false;
+                }
+            }
+            // all checks passed, move was a valid en passant
+        } else {
+            // capture is not an en passant
+            if (getPiece(move.endPos) != move.taken) {
+                // piece attempting to be captured is not in the right position
+                return false;
+            }
+        }
+    }
+
+    // pawn moved correctly
+    return true;
 }
 
 void Board::setPiece (Board::Pos pos, Board::Piece piece) {
@@ -196,10 +371,9 @@ void Board::undoMove () {
         // no moves to undo
         return;
     }
-    Board::Move move = moves_.back();
-    setPiece(move.startPos, move.piece);
-    setPiece(move.endPos, move.taken);
+    state_ = states_.back();
     moves_.pop_back();
+    states_.pop_back();
 
     Board::switchPlayer();
 }
