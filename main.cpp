@@ -38,7 +38,7 @@ int main (int argc, char **argv) {
             if (state[i][j] != Board::EM) {
                 sprites.push_back(sf::Sprite(piecesTex));
                 sprites.back().setTextureRect(pieceRects[state[i][j]]);
-                sprites.back().setPosition(45*i, 45*j);
+                sprites.back().setPosition(45*i, 45*(7 - j));
             }
         }
     }
