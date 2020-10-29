@@ -3,7 +3,20 @@
 #include <SFML/Graphics.hpp>
 #include "stdio.h"
 
-
+void updateSprites(std::vector <sf::Sprite> *sprites, sf::Texture *piecesTex, sf::IntRect pieceRects[12], Board *board) {
+    sprites->clear();
+    Board::Piece state[16][16];
+    board->getState(state);
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (state[i][j] != Board::EM) {
+                sprites->push_back(sf::Sprite(*piecesTex));
+                sprites->back().setTextureRect(pieceRects[state[i][j]]);
+                sprites->back().setPosition(45*i, 45*(7 - j));
+            }
+        }
+    }
+}
 
 int main (int argc, char **argv) {
     sf::RenderWindow window(sf::VideoMode(360, 360), "Chess");
@@ -31,17 +44,8 @@ int main (int argc, char **argv) {
     
     Board* board = new Board();
     std::vector <sf::Sprite> sprites;
-    Board::Piece state[16][16];
-    board->getState(state);
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if (state[i][j] != Board::EM) {
-                sprites.push_back(sf::Sprite(piecesTex));
-                sprites.back().setTextureRect(pieceRects[state[i][j]]);
-                sprites.back().setPosition(45*i, 45*(7 - j));
-            }
-        }
-    }
+    updateSprites(&sprites, &piecesTex, pieceRects, board);
+    
 
     while (window.isOpen())
     {
