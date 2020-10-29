@@ -62,14 +62,6 @@ int Board::doMove (Board::Move move) {
             return -1;
         }
     }
-    if (turn_ == WHITE && (move.taken <= WP) && (move.taken >= WK)) {
-        fprintf(stderr, "Invalid move: You cannot take your own piece\n");
-        return -1;
-    }
-    if (turn_ == BLACK && (move.taken <= BP) && (move.taken >= BK)) {
-        fprintf(stderr, "Invalid move: You cannot take your own piece\n");
-        return -1;
-    }
     if (!Board::isLegalMove(move)) {
         fprintf(stderr, "Invalid move: The specified piece cannot move like that\n");
         return -1;
@@ -77,7 +69,7 @@ int Board::doMove (Board::Move move) {
 
     moves_.push_back(move);
     states_.push_back(state_);
-    
+
     if (getPiece(move.endPos) == EM) {
         // have already verified this is a valid move, there must have been
         // an en passant.
@@ -93,8 +85,8 @@ int Board::doMove (Board::Move move) {
     }
     
     Board::switchPlayer();
-    if (Board::isCheckmate() == turn_) {
-        fprintf(stderr, "Invalid move: Cannot move into check or checkmate\n");
+    if (Board::isCheck() == turn_) {
+        fprintf(stderr, "Invalid move: Cannot move into check\n");
         Board::undoMove();
         return -1;
     } else if (Board::isCheckmate() != EMPTY) {
@@ -106,11 +98,30 @@ int Board::doMove (Board::Move move) {
     return 0;
 }
 
-// verifies if the current board state is a checkmate. Also verifies if
-// a king is in check and it is the other player's turn
+// verifies if the current board state is a checkmate by checking all current
+// valid moves and seeing if king is in check in all of them
 Board::Player isCheckmate () {
 
     return Board::EMPTY;
+}
+
+// assumes only one king is in check at a time (ie. game has been played correctly
+// so far)
+Board::Player isCheck () {
+    Board::Pos posBlack = {.x = -1, .y = -1};
+    Board::Pos posWhite = {.x = -1, .y = -1};
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            Board::Pos tmp = {.x = i, .y = j};
+            if (getPiece(tmp) == BK) {
+                posBlack = tmp;
+            } else if (getPiece(tmp) == WK) {
+                posWhite = tmp;
+            }
+        }
+    }
+
+    
 }
 
 
@@ -172,9 +183,7 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
 
 // this function only checks the validity of the movement of a piece.
 // it is assumed that the player is not moving into check or checkmate, 
-// not taking their own piece, and the starting and ending points are 
-// within the bounds of the board. Calls isValidPawnMove() which can
-// change the game state
+// and the starting and ending points are within the bounds of the board.
 bool Board::isLegalMove (Board::Move move) {
     
 
@@ -183,6 +192,11 @@ bool Board::isLegalMove (Board::Move move) {
 
     if (dx == 0 && dy == 0) {
         // movement must be non-zero
+        return false;
+    }
+    
+    if ((move.piece >= BK && move.piece <= BP) && (move.piece >= WK && move.piece <= WP)) {
+        // cannot capture your own piece
         return false;
     }
 
