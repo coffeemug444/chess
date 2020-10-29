@@ -27,7 +27,8 @@ public:
 
     typedef enum Player {
         BLACK = 0,
-        WHITE
+        WHITE,
+        EMPTY
     } Player;
 
     typedef struct Pos {
@@ -55,16 +56,18 @@ private:
     Board::Piece state_ [16][16];  // 16*16 array of the board
     Board::Player turn_;            // current players turn
 
-    std::vector <Move> moves;
+    std::vector <Move> moves_;
 
     void setPiece (Board::Pos pos, Board::Piece piece);
+    void switchPlayer ();
+    bool isLegalMove (Board::Move move);
 
 public:
     Board ();
     void getState (Board::Piece state [16][16]);   // copies the current state of the board into the array pointed to
     Board::Piece getPiece (Board::Pos pos); // get piece at pos
     int doMove (Board::Move move); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
-    bool isCheckmate ();
+    Board::Player isCheckmate ();
     void undoMove ();
     void reset ();
 };
