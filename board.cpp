@@ -69,7 +69,7 @@ int Board::doMove (Board::Move move) {
     moves_.push_back(move);
     states_.push_back(state_);
 
-    if (getPiece(move.endPos) == EM) {
+    if (move.taken != EM && getPiece(move.endPos) == EM) {
         // have already verified this is a valid move, there must have been
         // an en passant.
         Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
@@ -88,6 +88,7 @@ int Board::doMove (Board::Move move) {
     Board::switchPlayer();
     if (isCheckmate(turn_)){
         // last player to move just won the game
+        printf("Checkmate, %s wins\n", turn_ == WHITE ? "white" : "black");
         return 1;
     }
 
