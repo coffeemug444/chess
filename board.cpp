@@ -21,23 +21,23 @@ Board::Piece Board::getPiece (Board::Pos pos) {
 
 int Board::doMove (Board::Move move) {
     if (move.piece == EM) {
-        fprintf(stderr, "Invalid move: An empty position was selected to move");
+        fprintf(stderr, "Invalid move: An empty position was selected to move\n");
         return -1;
     }
     if (move.startPos.x < 1 || move.startPos.x > 8 || move.startPos.y < 1 || move.startPos.y > 8) {
-        fprintf(stderr, "Invalid move: Selected start position is outside the range of the board [x, y] : {1, 8}");
+        fprintf(stderr, "Invalid move: Selected start position is outside the range of the board [x, y] : {1, 8}\n");
         return -1;
     }
     if (getPiece(move.startPos) != move.piece) {
-        fprintf(stderr, "Invalid move: The piece in the starting position is not the piece selected");
+        fprintf(stderr, "Invalid move: The piece in the starting position is not the piece selected\n");
         return -1;
     }
     if (turn_ == WHITE && (move.piece <= BP) && (move.piece >= BK)) {
-        fprintf(stderr, "Invalid move: It is white's turn to move, but a black piece was selected");
+        fprintf(stderr, "Invalid move: It is white's turn to move, but a black piece was selected\n");
         return -1;
     }
     if (turn_ == BLACK && (move.piece <= WP) && (move.piece >= WK)) {
-        fprintf(stderr, "Invalid move: It is black's turn to move, but a white piece was selected");
+        fprintf(stderr, "Invalid move: It is black's turn to move, but a white piece was selected\n");
         return -1;
     }
     
@@ -45,11 +45,11 @@ int Board::doMove (Board::Move move) {
     // player has selected a valid piece. Check to see if the place they're moving it to is valid.
     
     if (move.endPos.x < 1 || move.endPos.x > 8 || move.endPos.y < 1 || move.endPos.y > 8) {
-        fprintf(stderr, "Invalid move: Selected end position is outside the range of the board [x, y] : {1, 8}");
+        fprintf(stderr, "Invalid move: Selected end position is outside the range of the board [x, y] : {1, 8}\n");
         return -1;
     }
     if (getPiece(move.endPos) != move.taken) {
-        fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified");
+        fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified\n");
         return -1;
     }
 }
