@@ -570,8 +570,8 @@ void Board::undoMove () {
 }
 
 void Board::getState(Board::Piece state [16][16]) {
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 16; j++) {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
             Board::Pos pos = {.x = i + 1, .y = j + 1};
             state[i][j] = getPiece(pos);
         }
@@ -755,4 +755,5 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
             }
         }
     }
+    return moves;
 }
