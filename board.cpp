@@ -85,12 +85,12 @@ int Board::doMove (Board::Move move) {
     }
     
     Board::switchPlayer();
-    if (Board::isCheck() == turn_) {
+    if (Board::isCheck(turn_)) {
         fprintf(stderr, "Invalid move: Cannot move into check\n");
         Board::undoMove();
         return -1;
-    } else if (Board::isCheckmate() != EMPTY) {
-        // last player to move won the game
+    } else if (isCheckmate(turn_)){
+        // last player to move just won the game
         return 1;
     }
 
@@ -99,29 +99,144 @@ int Board::doMove (Board::Move move) {
 }
 
 // verifies if the current board state is a checkmate by checking all current
-// valid moves and seeing if king is in check in all of them
-Board::Player isCheckmate () {
+// valid moves and seeing if king is in check in all of them. Returns true if
+// 'player' is in checkmate
+bool Board::isCheckmate (Board::Player player) {
 
-    return Board::EMPTY;
+    return false;
 }
 
-// assumes only one king is in check at a time (ie. game has been played correctly
-// so far)
-Board::Player isCheck () {
-    Board::Pos posBlack = {.x = -1, .y = -1};
-    Board::Pos posWhite = {.x = -1, .y = -1};
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            Board::Pos tmp = {.x = i, .y = j};
-            if (getPiece(tmp) == BK) {
-                posBlack = tmp;
-            } else if (getPiece(tmp) == WK) {
-                posWhite = tmp;
+// Returns true if 'pl' is in check
+bool Board::isCheck (Board::Player pl) {
+    Board::Pos king_pos;
+    Piece p;
+    for (int i = 1; i < 9; i++) {
+        for (int j = 1; j < 9; j++) {
+            king_pos = {.x = i, .y = j};
+            p = getPiece(king_pos);
+            if ((pl == WHITE && p == WK) || (pl == BLACK && p == BK)) {
+                goto outOfLoop; // ya love to see it ;)
+            }
+        }
+    }
+    outOfLoop:
+    // check all knight jumps from king position
+    {
+        int x_pos[] = {-2,-1,1,2,2,1,-1,-2};
+        int y_pos[] = {1,2,2,1,-1,-2,-2,-1};
+        for (int i = 0; i < 8; i++) {
+            Board::Pos pos = {.x = king_pos.x + x_pos[i], .y = king_pos.y + y_pos[i]};
+            if (isInsideBoard(pos)) {
+                p = getPiece(pos);
+                if ((pl == WHITE && p == BN) || (pl == BLACK && p == WN)) {
+                    return true;
+                }
             }
         }
     }
 
+    // check two pawn positions
+    {
+        Board::Pos pos = king_pos;
+        pos.x -= 1;
+        if (pl == WHITE) {
+            pos.y += 1;
+        } else {
+            pos.y -= 1;
+        }
+        if (isInsideBoard(pos)) {
+            p = getPiece(pos);
+            if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
+                return true;
+            }
+        }
+        pos.x += 2;
+        if (isInsideBoard(pos)) {
+            p = getPiece(pos);
+            if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
+                return true;
+            }
+        }
+    }
+
+    // check surrounding tiles for opponent king
+    {
+        int x_pos[] = {-1,0,1,1,1,0,-0,-1};
+        int y_pos[] = {1,1,1,0,-1,-1,-1,0};
+        for (int i = 0; i < 8; i++) {
+            Board::Pos pos = {.x = king_pos.x + x_pos[i], .y = king_pos.y + y_pos[i]};
+            p = getPiece(pos);
+            if ((pl == WHITE && p == BK) || (pl == BLACK && p == WK)) {
+                return true;
+            }
+        }
+    }
     
+
+
+    // check in a straight lines
+    for (int i = 1; i < 8; i++) {
+        Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
+        pos[0].x -= i;
+        pos[1].x += i;
+        pos[0].y -= i;
+        pos[1].y += i;
+
+        for (int j = 0; j < 4; j++) {
+            if (isInsideBoard(pos[j])) {
+                p = getPiece(pos[j]);
+                if ((pl == BLACK && (p >= WK && p <= WP)) || (pl == WHITE && (p >= BK && p <= BP))) {
+                    // piece on the tile is an enemy
+                    if (!isPieceBetween(pos[j], king_pos)) {
+                        if ((pl == WHITE && p == BR) || (pl == BLACK && p == WR)) {
+                            return true;
+                        }
+                        if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // check in diagonal lines
+    for (int i = 1; i < 8; i++) {
+        Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
+        pos[0].x -= i; pos[0].y -= i;
+        pos[1].x += i; pos[1].y -= i;
+        pos[2].x -= i; pos[2].y += i;
+        pos[3].x += i; pos[3].y += i;
+
+        for (int j = 0; j < 4; j++) {
+            if (isInsideBoard(pos[j])) {
+                p = getPiece(pos[j]);
+                if ((pl == BLACK && (p >= WK && p <= WP)) || (pl == WHITE && (p >= BK && p <= BP))) {
+                    // piece on the tile is an enemy
+                    if (!isPieceBetween(pos[j], king_pos)) {
+                        if ((pl == WHITE && p == BB) || (pl == BLACK && p == WB)) {
+                            return true;
+                        }
+                        if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // king not under attack by pawns, knights, or any pieces on a straight or diagonal line
+    return false;
+}
+
+bool Board::isInsideBoard(Board::Pos pos) {
+    if (pos.x < 1 || pos.x > 8) {
+        return false;
+    } else if (pos.y < 1 || pos.y > 8) {
+        return false;
+    }
+    return true;
 }
 
 
