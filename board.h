@@ -1,6 +1,8 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include <vector>
+
 class Board {
 public:
     // type declarations
@@ -33,6 +35,13 @@ public:
         int y;
     } Pos;
 
+    typedef struct Move {
+        Board::Piece piece;
+        Board::Pos startPos;
+        Board::Pos endPos;
+        Board::Piece taken;
+    } Move;
+
 private:
     Piece starting_board_ [16][16] = { {BR, BN, BB, BQ, BK, BB, BN, BR},
                                        {BP, BP, BP, BP, BP, BP, BP, BP},
@@ -44,14 +53,17 @@ private:
                                        {WR, WN, WB, WQ, WK, WB, WN, WR}
                                      };
     Piece state_ [16][16];  // 16*16 array of the board
-    Player turn;            // current players turn
+    Player turn_;            // current players turn
 
+    std::vector <Move> moves;
+
+    void setPiece (Pos pos, Piece piece);
 
 public:
     Board ();
     void getState (Piece state [16][16]);   // copies the current state of the board into the array pointed to
     Piece getPiece (Pos pos); // get piece at pos
-    int doMove (Piece piece, Pos startPos, Pos endPos); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
+    int doMove (Move move); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
     bool isCheckmate ();
     void undoMove ();
     void reset ();
