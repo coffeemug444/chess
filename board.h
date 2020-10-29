@@ -61,6 +61,7 @@ private:
     void setPiece (Board::Pos pos, Board::Piece piece);
     void switchPlayer ();
     bool isLegalMove (Board::Move move);
+    bool isPieceBetween (Board::Pos a, Board::Pos b);
 
 public:
     Board ();

@@ -1,5 +1,6 @@
 #include "board.h"
 #include "stdio.h"
+#include "stdlib.h"
 
 Board::Board () {
     reset();
@@ -81,6 +82,101 @@ int Board::doMove (Board::Move move) {
 
     // valid move, game is still continuing
     return 0;
+}
+
+// verifies if the current board state is a checkmate. Also verifies if
+// a king is in check and it is the other player's turn
+Board::Player isCheckmate () {
+
+    return Board::EMPTY;
+}
+
+
+// checks to see if there are pieces in between two points. Points specified
+// must be a straight or exact diagonal line, and must lie within the bounds
+// of the board
+bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
+    int dx = a.x - b.x;
+    int dy = a.y - b.y;
+
+    int x_sign = 1;
+    int y_sign = 1;
+    if (dx < 0) {
+        x_sign = -1;
+    } 
+    if (dy < 0) {
+        y_sign = -1;
+    }
+
+    Board::Pos tmp = a;
+
+    if ((abs(dx) <= 1) && (abs(dy) <= 1)) {
+        return false;
+    }
+    
+    if (dx == 0) {
+        // piece is moving along y axis
+        for (int i = 1; i < abs(dy); i++) {
+            tmp = a;
+            tmp.y += i * y_sign;
+            if (getPiece(tmp) != EM) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if (dy == 0) {
+        // piece is moving along x axis
+        for (int i = 1; i < abs(dx); i++) {
+            tmp = a;
+            tmp.x += i * x_sign;
+            if (getPiece(tmp) != EM) {
+                return true;
+            }
+        }
+        return false;
+    }
+    for (int i = 1; i < abs(dx); i++) {
+        // piece is moving in a diagonal
+        tmp = a;
+        tmp.x += i * x_sign;
+        tmp.y += i * y_sign;
+        if (getPiece(tmp) != EM) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// this function only checks the validity of the movement of a piece.
+// it is assumed that the player is not moving into check or checkmate, 
+// not taking their own piece, and the starting and ending points are 
+// within the bounds of the board.
+bool Board::isLegalMove (Board::Move move) {
+    
+
+    int dx = move.startPos.x - move.endPos.x;
+    int dy = move.startPos.y - move.endPos.y;
+
+    if (dx == 0 && dy == 0) {
+        // movement must be non-zero
+        return false;
+    }
+
+    if (move.piece == BK || move.piece == WK) {
+        // king is moving
+        if (abs(dx) > 1 || abs(dy) > 1) {
+            return false;
+        }
+        return true;
+    }
+
+    if (move.piece == BQ || move.piece == WQ) {
+        // queen is moving
+        if (dx == 0) {
+
+        }
+    }
 }
 
 void Board::setPiece (Board::Pos pos, Board::Piece piece) {
