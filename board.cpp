@@ -293,6 +293,11 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
     return false;
 }
 
+// checks to see if the selected piece is in the specified starting position,
+// whether the selected piece is an actual piece, if the start and end positions
+// are within the range of the board, if the move is trying to capture a piece
+// of the same colour, if the shape of the move is correct for that piece,
+// and if the move will leave the player in check or not
 bool Board::isLegalMove (Board::Move move) {
     if (getPiece(move.startPos) != move.piece) {
         return false;
@@ -592,9 +597,162 @@ std::vector <Board::Move> Board::getLegalMoves () {
     }
 
     std::vector <Board::Move> moves;
-    // add every possible move for each piece in piecePos then remove
-    // illegal moves by checking against isLegalMove() for each one.
+    // check every possible move for each piece and add only moves that satisfy isLegalMove()
     for (PiecePos pp : piecePos) {
+        if (pp.piece == WK || pp.piece == BK) {
+            // piece is a king
+            int pos_x[] = {-1,0,1,1,1,0,-1,-1};
+            int pos_y[] = {1,1,1,0,-1,-1,-1,0};
+            for (int i = 0; i < 8; i++) {
+                Board::Pos pos = {.x = pp.pos.x + pos_x[i], .y = pp.pos.y + pos_y[i]};
+                if (isInsideBoard(pos)) {
+                    Board::Piece take = getPiece(pos);
+                    Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
+                    if (isLegalMove(move)) {
+                        moves.push_back(move);
+                    }
+                }
+            }
+        }
+        if (pp.piece == WQ || pp.piece == BQ) {
+            // piece is a queen
+            for (int i = 1; i < 8; i++) {
+                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos}; // 8 directions of movement
+                pos[0].x += i;
+                pos[1].x -= i;
+                pos[2].y += i;
+                pos[3].y -= i;
+                pos[4].x += i; pos[4].y -= i;
+                pos[5].x -= i; pos[5].y -= i;
+                pos[6].x += i; pos[6].y += i;
+                pos[7].x -= i; pos[7].y += i;
+                for (int j = 0; j < 8; j++) {
+                    // for each direction of movement
+                    if (isInsideBoard(pos[j])) {
+                        Board::Piece take = getPiece(pos[j]);
+                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
+                        if (isLegalMove(move)) {
+                            moves.push_back(move);
+                        }
+                    }
+                }
+            }
+        }
+        if (pp.piece == WB || pp.piece == BB) {
+            // piece is a bishop
+            for (int i = 1; i < 8; i++) {
+                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos}; // 4 directions of movement
+                pos[0].x += i; pos[0].y -= i;
+                pos[1].x -= i; pos[1].y -= i;
+                pos[2].x += i; pos[2].y += i;
+                pos[3].x -= i; pos[3].y += i;
+                for (int j = 0; j < 4; j++) {
+                    // for each direction of movement
+                    if (isInsideBoard(pos[j])) {
+                        Board::Piece take = getPiece(pos[j]);
+                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
+                        if (isLegalMove(move)) {
+                            moves.push_back(move);
+                        }
+                    }
+                }
+            }
+        }
+        if (pp.piece == WN || pp.piece == BN) {
+            // piece is a knight
+            int pos_x[] = {-2,-1,1,2,2,1,-1,-2};
+            int pos_y[] = {1,2,2,1,-1,-2,-2,-1};
+            for (int i = 0; i < 8; i++) {
+                Board::Pos pos = {.x = pp.pos.x + pos_x[i], .y = pp.pos.y + pos_y[i]};
+                if (isInsideBoard(pos)) {
+                    Board::Piece take = getPiece(pos);
+                    Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
+                    if (isLegalMove(move)) {
+                        moves.push_back(move);
+                    }
+                }
+            }
+        }
+        if (pp.piece == WR || pp.piece == BR) {
+            // piece is a rook
+            for (int i = 1; i < 8; i++) {
+                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos}; // 4 directions of movement
+                pos[0].x += i;
+                pos[1].x -= i;
+                pos[2].y += i;
+                pos[3].y -= i;
+                for (int j = 0; j < 4; j++) {
+                    // for each direction of movement
+                    if (isInsideBoard(pos[j])) {
+                        Board::Piece take = getPiece(pos[j]);
+                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
+                        if (isLegalMove(move)) {
+                            moves.push_back(move);
+                        }
+                    }
+                }
+            }
+        }
+        if (pp.piece == WP || pp.piece == BP) {
+            // piece is a pawn
+            Board::Move move;
+            move.piece = pp.piece;
+            move.startPos = pp.pos;
 
+            Board::Pos pos = pp.pos;
+            if (pp.piece == WP) {
+                pos.y += 1;
+            } else {
+                pos.y -= 1;
+            }
+            Board::Piece take = getPiece(pos);
+            move.endPos = pos;
+            move.taken = take;
+            if (isLegalMove(move)) {
+                moves.push_back(move);
+            }
+            if (pp.piece == WP) {
+                pos.y += 1;
+            } else {
+                pos.y -= 1;
+            }
+            take = getPiece(pos);
+            move.endPos = pos;
+            move.taken = take;
+            if (isLegalMove(move)) {
+                moves.push_back(move);
+            }
+            if (pp.piece == WP) {
+                pos.y -= 1;
+            } else {
+                pos.y += 1;
+            }
+            pos.x += 1;
+            take = getPiece(pos);
+            move.endPos = pos;
+            if (take == EM) {
+                if (pp.piece == WP) {
+                    take = BP;
+                } else {
+                    take = WP;
+                }
+            }
+            if (isLegalMove(move)) {
+                moves.push_back(move);
+            }
+            pos.x -= 2;
+            take = getPiece(pos);
+            move.endPos = pos;
+            if (take == EM) {
+                if (pp.piece == WP) {
+                    take = BP;
+                } else {
+                    take = WP;
+                }
+            }
+            if (isLegalMove(move)) {
+                moves.push_back(move);
+            }
+        }
     }
 }
