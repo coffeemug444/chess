@@ -104,7 +104,12 @@ bool Board::isCheckmate (Board::Player player) {
 }
 
 // Returns true if 'pl' is in check
-bool Board::isCheck (Board::Player pl) {
+bool Board::isCheck (Board::Player pl, bool real) {
+    if (pl == WHITE) {
+        if (real) printf("checking if white is in check\n");
+    } else {
+        if (real) printf("checking if black is in check\n");
+    }
     Board::Pos king_pos;
     Piece p;
     for (int i = 1; i < 9; i++) {
@@ -126,6 +131,7 @@ bool Board::isCheck (Board::Player pl) {
             if (isInsideBoard(pos)) {
                 p = getPiece(pos);
                 if ((pl == WHITE && p == BN) || (pl == BLACK && p == WN)) {
+                    if (real) printf("check via knight at %d, %d\n", pos.x, pos.y);
                     return true;
                 }
             }
@@ -144,6 +150,7 @@ bool Board::isCheck (Board::Player pl) {
         if (isInsideBoard(pos)) {
             p = getPiece(pos);
             if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
+                if (real) printf("check via pawn at %d, %d\n", pos.x, pos.y);
                 return true;
             }
         }
@@ -151,6 +158,7 @@ bool Board::isCheck (Board::Player pl) {
         if (isInsideBoard(pos)) {
             p = getPiece(pos);
             if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
+                if (real) printf("check via pawn at %d, %d\n", pos.x, pos.y);
                 return true;
             }
         }
@@ -158,13 +166,16 @@ bool Board::isCheck (Board::Player pl) {
 
     // check surrounding tiles for opponent king
     {
-        int x_pos[] = {-1,0,1,1,1,0,-0,-1};
+        int x_pos[] = {-1,0,1,1,1,0,-1,-1};
         int y_pos[] = {1,1,1,0,-1,-1,-1,0};
         for (int i = 0; i < 8; i++) {
             Board::Pos pos = {.x = king_pos.x + x_pos[i], .y = king_pos.y + y_pos[i]};
-            p = getPiece(pos);
-            if ((pl == WHITE && p == BK) || (pl == BLACK && p == WK)) {
-                return true;
+            if (isInsideBoard(pos)) {
+                p = getPiece(pos);
+                if ((pl == WHITE && p == BK) || (pl == BLACK && p == WK)) {
+                    if (real) printf("check via king at %d, %d\n", pos.x, pos.y);
+                    return true;
+                }
             }
         }
     }
@@ -186,9 +197,11 @@ bool Board::isCheck (Board::Player pl) {
                     // piece on the tile is an enemy
                     if (!isPieceBetween(pos[j], king_pos)) {
                         if ((pl == WHITE && p == BR) || (pl == BLACK && p == WR)) {
+                            if (real) printf("check via rook at %d, %d\n", pos[j].x, pos[j].y);
                             return true;
                         }
                         if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
+                            if (real) printf("check via queen at %d, %d\n", pos[j].x, pos[j].y);
                             return true;
                         }
                     }
@@ -212,9 +225,11 @@ bool Board::isCheck (Board::Player pl) {
                     // piece on the tile is an enemy
                     if (!isPieceBetween(pos[j], king_pos)) {
                         if ((pl == WHITE && p == BB) || (pl == BLACK && p == WB)) {
+                            if (real) printf("check via bishop at %d, %d\n", pos[j].x, pos[j].y);
                             return true;
                         }
                         if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
+                            if (real) printf("check via queen at %d, %d\n", pos[j].x, pos[j].y);
                             return true;
                         }
                     }
@@ -240,8 +255,8 @@ bool Board::isInsideBoard(Board::Pos pos) {
 // must be a straight or exact diagonal line, and must lie within the bounds
 // of the board
 bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
-    int dx = a.x - b.x;
-    int dy = a.y - b.y;
+    int dx = b.x - a.x;
+    int dy = b.y - a.y;
 
     int x_sign = 1;
     int y_sign = 1;
@@ -288,6 +303,7 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
         if (getPiece(tmp) != EM) {
             return true;
         }
+        
     }
     return false;
 }
@@ -318,8 +334,8 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     }
     
 
-    int dx = move.startPos.x - move.endPos.x;
-    int dy = move.startPos.y - move.endPos.y;
+    int dx = move.endPos.x - move.startPos.x;
+    int dy = move.endPos.y - move.startPos.y;
 
     if (dx == 0 && dy == 0) {
         if (real) fprintf(stderr, "Invalid move: Movement must be non-zero\n");
@@ -407,6 +423,7 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     // is valid move so far. Do the move and see if the board is in check
     moves_.push_back(move);
     states_.push_back(state_);
+    Board::switchPlayer();
 
     if (getPiece(move.endPos) == EM) {
         // have already verified this is a valid move, there must have been
@@ -432,7 +449,7 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     } else {
         player == BLACK;
     }
-    if (Board::isCheck(player)) {
+    if (Board::isCheck(player, real)) {
         if (real) fprintf(stderr, "Invalid move: Move leaves king in check\n");
         isValid = false;
     }
@@ -448,8 +465,8 @@ bool Board::isValidPawnMove (Board::Move move, bool real) {
         return false;
     }
 
-    int dx = move.startPos.x - move.endPos.x;
-    int dy = move.startPos.y - move.endPos.y;
+    int dx = move.endPos.x - move.startPos.x;
+    int dy = move.endPos.y - move.startPos.y;
     
     if (abs(dy) > 2 || abs(dx) > 1) {
         // pawn is moving too far in x or y direction
@@ -723,22 +740,27 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
             } else {
                 pos.y -= 1;
             }
-            Board::Piece take = getPiece(pos);
-            move.endPos = pos;
-            move.taken = take;
-            if (isLegalMove(move, false)) {
-                moves.push_back(move);
+            Board::Piece take;
+            if (isInsideBoard(pos)) {
+                take = getPiece(pos);
+                move.endPos = pos;
+                move.taken = take;
+                if (isLegalMove(move, false)) {
+                    moves.push_back(move);
+                }
             }
             if (pp.piece == WP) {
                 pos.y += 1;
             } else {
                 pos.y -= 1;
             }
-            take = getPiece(pos);
-            move.endPos = pos;
-            move.taken = take;
-            if (isLegalMove(move, false)) {
-                moves.push_back(move);
+            if (isInsideBoard(pos)) {
+                take = getPiece(pos);
+                move.endPos = pos;
+                move.taken = take;
+                if (isLegalMove(move, false)) {
+                    moves.push_back(move);
+                }
             }
             if (pp.piece == WP) {
                 pos.y -= 1;
@@ -746,30 +768,34 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                 pos.y += 1;
             }
             pos.x += 1;
-            take = getPiece(pos);
-            move.endPos = pos;
-            if (take == EM) {
-                if (pp.piece == WP) {
-                    take = BP;
-                } else {
-                    take = WP;
+            if (isInsideBoard(pos)) {
+                take = getPiece(pos);
+                move.endPos = pos;
+                if (take == EM) {
+                    if (pp.piece == WP) {
+                        take = BP;
+                    } else {
+                        take = WP;
+                    }
                 }
-            }
-            if (isLegalMove(move, false)) {
-                moves.push_back(move);
+                if (isLegalMove(move, false)) {
+                    moves.push_back(move);
+                }
             }
             pos.x -= 2;
-            take = getPiece(pos);
-            move.endPos = pos;
-            if (take == EM) {
-                if (pp.piece == WP) {
-                    take = BP;
-                } else {
-                    take = WP;
+            if (isInsideBoard(pos)) {
+                take = getPiece(pos);
+                move.endPos = pos;
+                if (take == EM) {
+                    if (pp.piece == WP) {
+                        take = BP;
+                    } else {
+                        take = WP;
+                    }
                 }
-            }
-            if (isLegalMove(move, false)) {
-                moves.push_back(move);
+                if (isLegalMove(move, false)) {
+                    moves.push_back(move);
+                }
             }
         }
     }

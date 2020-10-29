@@ -61,7 +61,7 @@ public:
     Board::Piece getPiece (Board::Pos pos); // get piece at pos where [x, y] : {1, 8}
     int doMove (Board::Move move); // attempts to play the input move. Returns 0 on success, -1 on failure (invalid move), 1 if they won the game
     bool isCheckmate (Board::Player player);
-    bool isCheck (Board::Player player);
+    bool isCheck (Board::Player player, bool real);
     bool isLegalMove (Board::Move move, bool real);
     std::vector<Board::Move> getLegalMoves(Board::Player player);
     void undoMove ();
