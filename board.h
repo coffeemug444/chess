@@ -43,14 +43,14 @@ public:
     } Move;
 
 private:
-    Piece starting_board_ [16][16] = { {BR, BN, BB, BQ, BK, BB, BN, BR},
-                                       {BP, BP, BP, BP, BP, BP, BP, BP},
-                                       {EM, EM, EM, EM, EM, EM, EM, EM},
-                                       {EM, EM, EM, EM, EM, EM, EM, EM},
-                                       {EM, EM, EM, EM, EM, EM, EM, EM},
-                                       {EM, EM, EM, EM, EM, EM, EM, EM},
-                                       {WP, WP, WP, WP, WP, WP, WP, WP},
-                                       {WR, WN, WB, WQ, WK, WB, WN, WR}
+    Piece starting_board_ [16][16] = { {WR, WP, EM, EM, EM, EM, BP, BR},
+                                       {WN, WP, EM, EM, EM, EM, BP, BN},
+                                       {WB, WP, EM, EM, EM, EM, BP, BB},
+                                       {WQ, WP, EM, EM, EM, EM, BP, BQ},
+                                       {WK, WP, EM, EM, EM, EM, BP, BK},
+                                       {WB, WP, EM, EM, EM, EM, BP, BB},
+                                       {WN, WP, EM, EM, EM, EM, BP, BN},
+                                       {WR, WP, EM, EM, EM, EM, BP, BR}
                                      };
     Piece state_ [16][16];  // 16*16 array of the board
     Player turn_;            // current players turn

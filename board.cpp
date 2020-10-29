@@ -65,4 +65,10 @@ void Board::undoMove () {
     setPiece(move.startPos, move.piece);
     setPiece(move.endPos, move.taken);
     moves.pop_back();
+    
+    if (turn_ == WHITE) {
+        turn_ = BLACK;
+    } else {
+        turn_ = WHITE;
+    }
 }
