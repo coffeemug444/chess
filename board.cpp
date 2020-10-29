@@ -1,4 +1,5 @@
 #include "board.h"
+#include "stdio.h"
 
 Board::Board () {
     reset();
@@ -20,34 +21,35 @@ Board::Piece Board::getPiece (Board::Pos pos) {
 
 int Board::doMove (Board::Move move) {
     if (move.piece == EM) {
-        // if player tries to move an empty piece
+        fprintf(stderr, "Invalid move: An empty position was selected to move");
         return -1;
     }
     if (move.startPos.x < 1 || move.startPos.x > 8 || move.startPos.y < 1 || move.startPos.y > 8) {
-        // if starting position is outside the bounds of the board
-        return -1;
-    }
-    if (turn_ == WHITE && (move.piece <= BP) && (move.piece >= BK)) {
-        // if it's white's turn and player tries to move a black piece
-        return -1;
-    }
-    if (turn_ == BLACK && (move.piece <= WP) && (move.piece >= WK)) {
-        // if it's black's turn and player tries to move a white piece
+        fprintf(stderr, "Invalid move: Selected start position is outside the range of the board [x, y] : {1, 8}");
         return -1;
     }
     if (getPiece(move.startPos) != move.piece) {
-        // if the piece the player is trying to move is not in the starting position
+        fprintf(stderr, "Invalid move: The piece in the starting position is not the piece selected");
         return -1;
     }
+    if (turn_ == WHITE && (move.piece <= BP) && (move.piece >= BK)) {
+        fprintf(stderr, "Invalid move: It is white's turn to move, but a black piece was selected");
+        return -1;
+    }
+    if (turn_ == BLACK && (move.piece <= WP) && (move.piece >= WK)) {
+        fprintf(stderr, "Invalid move: It is black's turn to move, but a white piece was selected");
+        return -1;
+    }
+    
 
     // player has selected a valid piece. Check to see if the place they're moving it to is valid.
     
     if (move.endPos.x < 1 || move.endPos.x > 8 || move.endPos.y < 1 || move.endPos.y > 8) {
-        // if ending position is outside the bounds of the board
+        fprintf(stderr, "Invalid move: Selected end position is outside the range of the board [x, y] : {1, 8}");
         return -1;
     }
     if (getPiece(move.endPos) != move.taken) {
-        // if the piece the player is trying to take is not in the ending position
+        fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified");
         return -1;
     }
 }
@@ -65,7 +67,7 @@ void Board::undoMove () {
     setPiece(move.startPos, move.piece);
     setPiece(move.endPos, move.taken);
     moves.pop_back();
-    
+
     if (turn_ == WHITE) {
         turn_ = BLACK;
     } else {
