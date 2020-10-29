@@ -78,18 +78,16 @@ int Board::doMove (Board::Move move) {
     }
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
+    // if the moved piece was a pawn that reached the end of the board
+    // upgrade it to a queen    
     if (move.piece == WP && move.endPos.y == 8) {
         Board::setPiece(move.endPos, WQ);
     } else if (move.piece == BP && move.endPos.y == 1) {
         Board::setPiece(move.endPos, BQ);
     }
-    
+
     Board::switchPlayer();
-    if (Board::isCheck(turn_)) {
-        fprintf(stderr, "Invalid move: Cannot move into check\n");
-        Board::undoMove();
-        return -1;
-    } else if (isCheckmate(turn_)){
+    if (isCheckmate(turn_)){
         // last player to move just won the game
         return 1;
     }
@@ -98,9 +96,9 @@ int Board::doMove (Board::Move move) {
     return 0;
 }
 
-// verifies if the current board state is a checkmate by checking all current
-// valid moves and seeing if king is in check in all of them. Returns true if
-// 'player' is in checkmate
+// verifies if the current board state is a checkmate by checking if there
+// are any remaining valid moves (moving into check is an invalid move).
+// returns true if 'player' is in checkmate
 bool Board::isCheckmate (Board::Player player) {
 
     return false;
@@ -239,7 +237,6 @@ bool Board::isInsideBoard(Board::Pos pos) {
     return true;
 }
 
-
 // checks to see if there are pieces in between two points. Points specified
 // must be a straight or exact diagonal line, and must lie within the bounds
 // of the board
@@ -296,10 +293,25 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
     return false;
 }
 
-// this function only checks the validity of the movement of a piece.
-// it is assumed that the player is not moving into check or checkmate, 
-// and the starting and ending points are within the bounds of the board.
 bool Board::isLegalMove (Board::Move move) {
+    if (getPiece(move.startPos) != move.piece) {
+        return false;
+    }
+    if (move.piece == EM) {
+        return false;
+    }
+    if (move.startPos.x < 1 || move.startPos.x > 8) {
+        return false;
+    }
+    if (move.startPos.y < 1 || move.startPos.y > 8) {
+        return false;
+    }
+    if (move.endPos.x < 1 || move.endPos.x > 8) {
+        return false;
+    }
+    if (move.endPos.y < 1 || move.endPos.y > 8) {
+        return false;
+    }
     
 
     int dx = move.startPos.x - move.endPos.x;
@@ -322,7 +334,6 @@ bool Board::isLegalMove (Board::Move move) {
         }
 
         // moving within distance 1 of startPos
-        return true;
     }
 
     if (move.piece == BQ || move.piece == WQ) {
@@ -340,7 +351,6 @@ bool Board::isLegalMove (Board::Move move) {
 
         // moving in a straight line or diagonal, no pieces in the
         // way
-        return true;
     }
 
     if (move.piece == BB || move.piece == WB) {
@@ -354,7 +364,6 @@ bool Board::isLegalMove (Board::Move move) {
         }
 
         // moving in a diagonal, no pieces in the way
-        return true;
     }
 
     if (move.piece == BN || move.piece == WN) {
@@ -367,7 +376,6 @@ bool Board::isLegalMove (Board::Move move) {
         }
 
         // moving in L shape
-        return true;
     }
 
     if (move.piece == BR || move.piece == WR) {
@@ -381,15 +389,47 @@ bool Board::isLegalMove (Board::Move move) {
         }
 
         // moving in a straight line
-        return true;
     }
 
     if (move.piece == WP || move.piece == BP) {
         if (!isValidPawnMove(move)) {
             return false;
         }
-        return true;
     }
+
+    // is valid move so far. Do the move and see if the board is in check
+    moves_.push_back(move);
+    states_.push_back(state_);
+
+    if (getPiece(move.endPos) == EM) {
+        // have already verified this is a valid move, there must have been
+        // an en passant.
+        Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
+        Board::setPiece(pos, EM);
+    }
+    Board::setPiece(move.startPos, EM);
+    Board::setPiece(move.endPos, move.piece);
+    // if the moved piece was a pawn that reached the end of the board
+    // upgrade it to a queen    
+    if (move.piece == WP && move.endPos.y == 8) {
+        Board::setPiece(move.endPos, WQ);
+    } else if (move.piece == BP && move.endPos.y == 1) {
+        Board::setPiece(move.endPos, BQ);
+    }
+
+    bool isValid = true;
+    
+    Board::Player player;
+    if (move.piece >= WK && move.piece <= WP) {
+        player = WHITE;
+    } else {
+        player == BLACK;
+    }
+    if (Board::isCheck(player)) {
+        isValid = false;
+    }
+    undoMove();
+    return isValid;
 }
 
 // checks to see if the current move is by a pawn and is
@@ -530,5 +570,31 @@ void Board::getState(Board::Piece state [16][16]) {
             Board::Pos pos = {.x = i + 1, .y = j + 1};
             state[i][j] = getPiece(pos);
         }
+    }
+}
+
+std::vector <Board::Move> Board::getLegalMoves () {
+    typedef struct PiecePos {
+        Board::Piece piece;
+        Board::Pos pos;
+    } PiecePos;
+    std::vector <PiecePos> piecePos;
+
+    for (int i = 1; i < 9; i++) {
+        for (int j = 1; j < 9; j++) {
+            Board::Pos pos = {.x = i, .y = j};
+            Piece p = getPiece(pos);
+            if ((turn_ == WHITE && p >= WK && p <= WP) || (turn_ == BLACK && p >= BK && p <= BP)){
+                PiecePos x = {.piece = p, .pos = pos};
+                piecePos.push_back(x);
+            }
+        }
+    }
+
+    std::vector <Board::Move> moves;
+    // add every possible move for each piece in piecePos then remove
+    // illegal moves by checking against isLegalMove() for each one.
+    for (PiecePos pp : piecePos) {
+
     }
 }
