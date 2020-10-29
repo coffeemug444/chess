@@ -63,7 +63,7 @@ public:
     bool isCheckmate (Board::Player player);
     bool isCheck (Board::Player player);
     bool isLegalMove (Board::Move move);
-    std::vector<Board::Move> getLegalMoves();
+    std::vector<Board::Move> getLegalMoves(Board::Player player);
     void undoMove ();
     void reset ();
 };

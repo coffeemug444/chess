@@ -100,8 +100,8 @@ int Board::doMove (Board::Move move) {
 // are any remaining valid moves (moving into check is an invalid move).
 // returns true if 'player' is in checkmate
 bool Board::isCheckmate (Board::Player player) {
-
-    return false;
+    std::vector <Board::Move> moves = getLegalMoves(player);
+    return moves.size() == 0;
 }
 
 // Returns true if 'pl' is in check
@@ -578,7 +578,7 @@ void Board::getState(Board::Piece state [16][16]) {
     }
 }
 
-std::vector <Board::Move> Board::getLegalMoves () {
+std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
     typedef struct PiecePos {
         Board::Piece piece;
         Board::Pos pos;
@@ -589,7 +589,7 @@ std::vector <Board::Move> Board::getLegalMoves () {
         for (int j = 1; j < 9; j++) {
             Board::Pos pos = {.x = i, .y = j};
             Piece p = getPiece(pos);
-            if ((turn_ == WHITE && p >= WK && p <= WP) || (turn_ == BLACK && p >= BK && p <= BP)){
+            if ((player == WHITE && p >= WK && p <= WP) || (player == BLACK && p >= BK && p <= BP)){
                 PiecePos x = {.piece = p, .pos = pos};
                 piecePos.push_back(x);
             }
