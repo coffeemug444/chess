@@ -79,6 +79,11 @@ int Board::doMove (Board::Move move) {
     states_.push_back(state_);
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
+    if (move.piece == WP && move.endPos.y == 8) {
+        Board::setPiece(move.endPos, WQ);
+    } else if (move.piece == BP && move.endPos.y == 1) {
+        Board::setPiece(move.endPos, BQ);
+    }
     Board::switchPlayer();
     if (Board::isCheckmate() == turn_) {
         fprintf(stderr, "Invalid move: Cannot move into check or checkmate\n");
@@ -160,7 +165,8 @@ bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
 // this function only checks the validity of the movement of a piece.
 // it is assumed that the player is not moving into check or checkmate, 
 // not taking their own piece, and the starting and ending points are 
-// within the bounds of the board.
+// within the bounds of the board. Calls isValidPawnMove() which can
+// change the game state
 bool Board::isLegalMove (Board::Move move) {
     
 
@@ -251,7 +257,7 @@ bool Board::isLegalMove (Board::Move move) {
 
 // checks to see if the current move is by a pawn and is
 // a valid move. Will change the board state by capturing
-// the piece if the move is a valid en passant
+// the piece if the move is a valid en passant.
 bool Board::isValidPawnMove (Board::Move move) {
     if (!(move.piece == WP || move.piece == BP)) {
         // piece moving is not a pawn
@@ -308,7 +314,7 @@ bool Board::isValidPawnMove (Board::Move move) {
         // pawn must capture correctly (to reach this point abs(dy) will equal 1)
         if (getPiece(move.endPos) == EM) {
             // player must attempt en passant
-            Pos enPassantPlace;
+            Board::Pos enPassantPlace;
             enPassantPlace.x = move.endPos.x;
             enPassantPlace.y = move.startPos.y;
 
@@ -386,7 +392,7 @@ void Board::undoMove () {
 void Board::getState(Board::Piece state [16][16]) {
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
-            Pos pos = {.x = i, .y = j};
+            Board::Pos pos = {.x = i, .y = j};
             state[i][j] = getPiece(pos);
         }
     }
