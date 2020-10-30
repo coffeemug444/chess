@@ -86,7 +86,20 @@ int main (int argc, char **argv) {
                         selectedPiece.pos = pos;
                         selection.setPosition(45.f * (pos.x - 1), 45.f * (8 - pos.y));
                     }
-                } 
+                }
+            }
+            if (event.type == sf::Event::KeyPressed) {
+                sf::Keyboard::Key key = event.key.code;
+                if (key == sf::Keyboard::R) {
+                    // restart
+                    board->reset();
+                    updateSprites(&sprites, &piecesTex, pieceRects, board);
+                }
+                if (key == sf::Keyboard::Z) {
+                    // undo move
+                    board->undoMove();
+                    updateSprites(&sprites, &piecesTex, pieceRects, board);
+                }
             }
         }
 
