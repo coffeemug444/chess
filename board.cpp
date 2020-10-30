@@ -3,11 +3,13 @@
 #include "stdlib.h"
 
 Board::Board () {
+    hashes = new unsigned char[1];
     reset();
 }
 
 void Board::reset () {
     turn_ = WHITE;
+    delete hashes;
     state_.clear();
     state_ = { {WR, WP, EM, EM, EM, EM, BP, BR},
                {WN, WP, EM, EM, EM, EM, BP, BN},
@@ -20,6 +22,8 @@ void Board::reset () {
              };
     moves_.clear();
     states_.clear();
+    hashes = new unsigned char[4294967296];
+    Board::hashBoard();
 }
 
 Board::Piece Board::getPiece (Board::Pos pos) {
@@ -102,16 +106,85 @@ int Board::doMove (Board::Move move) {
         Board::setPiece(move.endPos, BQ);
     }
 
+
+
     Board::switchPlayer();
-    isCheck(turn_, true);   // get console log of check
-    if (isCheckmate(turn_)){
+    Board::isCheck(turn_, true);   // get console log of check
+    if (Board::isCheckmate(turn_)){
         // last player to move just won the game
         printf("Checkmate, %s wins\n", turn_ == WHITE ? "black" : "white");
-        return 1;
+        if (turn_ == WHITE) {
+            // black just won
+            return 2;
+        }
+        if (turn_ == BLACK) {
+            // white just won
+            return 1;
+        }
+    }
+
+    if (Board::isDraw()) {
+        return -1;
     }
 
     // valid move, game is still continuing
     return 0;
+}
+
+// checks several scenarios where the game is unwinnable. see https://en.wikipedia.org/wiki/Draw_(chess)
+// for more information
+bool Board::isDraw () {
+    if (!Board::isCheck(turn_, false) && getLegalMoves(turn_).size() == 0) {
+        // player is not in check but has no legal moves. Stalemate
+        return true;
+    }
+
+    if (hashes[lastHash] >= 3) {
+        // same board has repeated 3 times
+        return true;
+    }
+
+    int pC[13];
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            pC[state_[i][j]]++;
+        }
+    }
+    if (pC[WQ] == 0 && pC[BQ] == 0 && pC[BP] == 0 && pC[WP] == 0) {
+        // no pawns or queens
+        if (pC[WB] == 0 && pC[BB] == 0 && pC[BN] == 0 && pC[WN] == 0 && pC[BR] == 0 && pC[WR] == 0) {
+            // only kings remain
+            return true;
+        }
+        if ((pC[WB] == 1 && pC[BB] == 0 || pC[WB] == 1 && pC[BB] == 0) && pC[BN] == 0 && pC[WN] == 0 && pC[BR] == 0 && pC[WR] == 0) {
+            // only kings and one bishop
+            return true;
+        }
+        if (pC[WB] == 1 && pC[BB] == 0 && (pC[BN] == 1 && pC[WN] == 0 || pC[BN] == 0 && pC[WN] == 1) && pC[BR] == 0 && pC[WR] == 0) {
+            // only kings and one knight
+            return true;
+        }
+    }
+    return false;
+}
+
+// uses FNV1 hash algrorithm to hash and store the current board state
+void Board::hashBoard () {
+    int numBytes = sizeof(Board::Piece);
+    unsigned int hash = 2166136261;
+    unsigned int prime = 16777619;
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            char* data = (char*)(&state_[i][j]);
+            for (int b = 0; b < numBytes; b++) {
+                hash = hash ^ data[b];
+                hash = hash * prime;
+            }
+        }
+    }
+    hashes[hash]++;
+    lastHash = hash;
 }
 
 // verifies if the current board state is a checkmate by checking if there

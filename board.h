@@ -49,11 +49,16 @@ private:
     std::vector <Move> moves_;
     std::vector <std::vector <std::vector <Board::Piece>>> states_; // vector of all previous board states
 
+    unsigned char* hashes; // stores hashes of all previous game states
+    unsigned char lastHash; // stores last hash
+
     void setPiece (Board::Pos pos, Board::Piece piece);
     void switchPlayer ();
     bool isPieceBetween (Board::Pos a, Board::Pos b);
     bool isValidPawnMove (Board::Move move, bool real);
     bool isInsideBoard (Board::Pos pos);
+    bool isDraw ();
+    void hashBoard ();
 
 public:
     Board ();
