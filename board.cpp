@@ -195,8 +195,6 @@ bool Board::isCheck (Board::Player pl, bool real) {
         }
     }
     
-
-
     // check in a straight lines
     for (int i = 1; i < 8; i++) {
         Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
