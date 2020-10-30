@@ -88,7 +88,7 @@ int Board::doMove (Board::Move move) {
     Board::switchPlayer();
     if (isCheckmate(turn_)){
         // last player to move just won the game
-        printf("Checkmate, %s wins\n", turn_ == WHITE ? "white" : "black");
+        printf("Checkmate, %s wins\n", turn_ == WHITE ? "black" : "white");
         return 1;
     }
 
@@ -101,16 +101,12 @@ int Board::doMove (Board::Move move) {
 // returns true if 'player' is in checkmate
 bool Board::isCheckmate (Board::Player player) {
     std::vector <Board::Move> moves = getLegalMoves(player);
+    //printf("%s has %d available moves\n", player == WHITE ? "white" : "black", moves.size());
     return moves.size() == 0;
 }
 
 // Returns true if 'pl' is in check
 bool Board::isCheck (Board::Player pl, bool real) {
-    if (pl == WHITE) {
-        if (real) printf("checking if white is in check\n");
-    } else {
-        if (real) printf("checking if black is in check\n");
-    }
     Board::Pos king_pos;
     Piece p;
     for (int i = 1; i < 9; i++) {
@@ -188,8 +184,8 @@ bool Board::isCheck (Board::Player pl, bool real) {
         Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
         pos[0].x -= i;
         pos[1].x += i;
-        pos[0].y -= i;
-        pos[1].y += i;
+        pos[2].y -= i;
+        pos[3].y += i;
 
         for (int j = 0; j < 4; j++) {
             if (isInsideBoard(pos[j])) {
@@ -343,10 +339,15 @@ bool Board::isLegalMove (Board::Move move, bool real) {
         return false;
     }
     
-    if ((move.piece >= BK && move.piece <= BP) && (move.piece >= WK && move.piece <= WP)) {
+    if ((move.piece >= BK && move.piece <= BP) && (move.taken >= BK && move.taken <= BP)) {
         if (real) fprintf(stderr, "Invalid move: You cannot capture your own piece\n");
         return false;
     }
+    if ((move.piece >= WK && move.piece <= WP) && (move.taken >= WK && move.taken <= WP)) {
+        if (real) fprintf(stderr, "Invalid move: You cannot capture your own piece\n");
+        return false;
+    }
+
 
     if (move.piece == BK || move.piece == WK) {
         // king is moving
@@ -411,8 +412,12 @@ bool Board::isLegalMove (Board::Move move, bool real) {
                 return false;
             }
         }
+        if (isPieceBetween(move.startPos, move.endPos)) {
+            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
+            return false;
+        }
 
-        // moving in a straight line
+        // moving in a straight line, no pieces in the way
     }
 
     if (move.piece == WP || move.piece == BP) {
@@ -426,7 +431,7 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     states_.push_back(state_);
     Board::switchPlayer();
 
-    if (getPiece(move.endPos) == EM) {
+    if (move.taken != EM && getPiece(move.endPos) == EM) {
         // have already verified this is a valid move, there must have been
         // an en passant.
         Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
@@ -448,7 +453,7 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     if (move.piece >= WK && move.piece <= WP) {
         player = WHITE;
     } else {
-        player == BLACK;
+        player = BLACK;
     }
     if (Board::isCheck(player, real)) {
         if (real) fprintf(stderr, "Invalid move: Move leaves king in check\n");
