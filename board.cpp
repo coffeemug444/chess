@@ -336,6 +336,22 @@ bool Board::isInsideBoard(Board::Pos pos) {
     return true;
 }
 
+std::vector <std::vector <std::vector <Board::Piece>>> Board::getPreviousBoardStates () {
+    std::vector <std::vector <std::vector <Board::Piece>>> states = states_;
+    return states;
+}
+
+std::vector <std::vector <std::vector <Board::Piece>>> Board::getNextBoardStates () {
+    std::vector<Board::Move> legalMoves = getLegalMoves(turn_);
+    std::vector <std::vector <std::vector <Board::Piece>>> nextStates;
+    for (Board::Move m : legalMoves) {
+        doMove(m);
+        nextStates.push_back(state_);
+        undoMove();
+    }
+    return nextStates;
+}
+
 // checks to see if there are pieces in between two points. Points specified
 // must be a straight or exact diagonal line, and must lie within the bounds
 // of the board
