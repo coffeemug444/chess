@@ -103,6 +103,7 @@ int Board::doMove (Board::Move move) {
     }
 
     Board::switchPlayer();
+    isCheck(turn_, true);   // get console log of check
     if (isCheckmate(turn_)){
         // last player to move just won the game
         printf("Checkmate, %s wins\n", turn_ == WHITE ? "black" : "white");
