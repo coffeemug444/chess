@@ -192,8 +192,7 @@ void Board::hashBoard () {
 // returns true if 'player' is in checkmate
 bool Board::isCheckmate (Board::Player player) {
     std::vector <Board::Move> moves = getLegalMoves(player);
-    //printf("%s has %d available moves\n", player == WHITE ? "white" : "black", moves.size());
-    return moves.size() == 0;
+    return moves.size() == 0 && Board::isCheck(player, false);
 }
 
 // Returns true if 'pl' is in check
