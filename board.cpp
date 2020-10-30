@@ -69,11 +69,28 @@ int Board::doMove (Board::Move move) {
     moves_.push_back(move);
     states_.push_back(state_);
 
-    if (move.taken != EM && getPiece(move.endPos) == EM) {
+    if (move.taken == EM && (move.startPos.x - move.endPos.x) != 0 && (move.piece == BP || move.piece == WP)) {
         // have already verified this is a valid move, there must have been
         // an en passant.
         Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
         Board::setPiece(pos, EM);
+    }
+    if ((move.piece == BK || move.piece == WK) && abs(move.startPos.x - move.endPos.x) == 2) {
+        // have already verified this is a valid move, there must have been
+        // a castle
+        Board::Pos tmp = move.endPos;
+        if ((move.endPos.x - move.startPos.x) > 0) {
+            tmp.x += 1;
+            Board::setPiece(tmp, EM);
+            tmp.x -= 2;
+            Board::setPiece(tmp, move.piece == BK ? BR : WR);
+        }
+        if ((move.endPos.x - move.startPos.x) < 0) {
+            tmp.x -= 2;
+            Board::setPiece(tmp, EM);
+            tmp.x += 3;
+            Board::setPiece(tmp, move.piece == BK ? BR : WR);
+        }
     }
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
@@ -351,12 +368,56 @@ bool Board::isLegalMove (Board::Move move, bool real) {
 
     if (move.piece == BK || move.piece == WK) {
         // king is moving
-        if (abs(dx) > 1 || abs(dy) > 1) {
+        if (abs(dx) == 2) {
+            // must attempt a castle
+            // king must have never moved, rook must have never moved
+            for (Board::Move prevMove : moves_) {
+                if (prevMove.piece == move.piece) {
+                    if (real) fprintf(stderr, "Invalid move: King has moved before\n");
+                    return false;
+                }
+                if (prevMove.piece == BR) {
+                    if (dx > 0 && prevMove.startPos.x == 8 && prevMove.startPos.y == 8) {
+                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
+                        return false;
+                    }
+                    if (dx < 0 && prevMove.startPos.x == 1 && prevMove.startPos.y == 8) {
+                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
+                        return false;
+                    }
+                }
+                if (prevMove.piece == WR) {
+                    if (dx > 0 && prevMove.startPos.x == 8 && prevMove.startPos.y == 1) {
+                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
+                        return false;
+                    }
+                    if (dx < 0 && prevMove.startPos.x == 1 && prevMove.startPos.y == 1) {
+                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
+                        return false;
+                    }
+                }
+            }
+            // king and rook have never moved
+            Board::Pos tmp = move.startPos;
+            if (dx > 0) {
+                tmp.x = 8;
+                if (isPieceBetween(move.startPos, tmp)) {
+                    if (real) fprintf(stderr, "Invalid move: There are pieces between king and rook\n");
+                    return false;
+                }
+            } else if (dx < 0) {
+                tmp.x = 1;
+                if (isPieceBetween(move.startPos, tmp)) {
+                    if (real) fprintf(stderr, "Invalid move: There are pieces between king and rook\n");
+                    return false;
+                }
+            }
+        } else if (abs(dx) > 1 || abs(dy) > 1) {
             if (real) fprintf(stderr, "Invalid move: King can only move distance 1\n");
             return false;
         }
 
-        // moving within distance 1 of startPos
+        // moving within distance 1 of startPos or was a valid castle
     }
 
     if (move.piece == BQ || move.piece == WQ) {
@@ -431,11 +492,28 @@ bool Board::isLegalMove (Board::Move move, bool real) {
     states_.push_back(state_);
     Board::switchPlayer();
 
-    if (move.taken != EM && getPiece(move.endPos) == EM) {
+    if (move.taken == EM && (move.startPos.x - move.endPos.x) != 0 && (move.piece == BP || move.piece == WP)) {
         // have already verified this is a valid move, there must have been
         // an en passant.
         Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
         Board::setPiece(pos, EM);
+    }
+    if ((move.piece == BK || move.piece == WK) && abs(move.startPos.x - move.endPos.x) == 2) {
+        // have already verified this is a valid move, there must have been
+        // a castle
+        Board::Pos tmp = move.endPos;
+        if ((move.endPos.x - move.startPos.x) > 0) {
+            tmp.x += 1;
+            Board::setPiece(tmp, EM);
+            tmp.x -= 2;
+            Board::setPiece(tmp, move.piece == BK ? BR : WR);
+        }
+        if ((move.endPos.x - move.startPos.x) < 0) {
+            tmp.x -= 2;
+            Board::setPiece(tmp, EM);
+            tmp.x += 3;
+            Board::setPiece(tmp, move.piece == BK ? BR : WR);
+        }
     }
     Board::setPiece(move.startPos, EM);
     Board::setPiece(move.endPos, move.piece);
@@ -539,29 +617,35 @@ bool Board::isValidPawnMove (Board::Move move, bool real) {
 
             if (abs(lastMove.startPos.y - lastMove.endPos.y) != 2) {
                 // if the previous move was not a dy of 2
+                if (real) fprintf(stderr, "Invalid move: previous move was not a move forward of size 2\n");
                 validEnPassant = false;
             }
             if ((lastMove.endPos.x != enPassantPlace.x) || (lastMove.endPos.y != enPassantPlace.y)) {
                 // if the previous move did not land on place of en passant capture
+                if (real) fprintf(stderr, "Invalid move: last move did not land on place of en passant capture\n");
                 validEnPassant = false;
             }
 
             if (move.piece == WP) {
-                if (move.taken != BP) {
+                if (getPiece(enPassantPlace) != BP) {
                     // if the taken piece is not pawn of opposite colour
+                    if (real) fprintf(stderr, "Invalid move: En passant piece is not pawn of opposite colour\n");
                     validEnPassant = false;
                 }
                 if (lastMove.piece != BP) {
                     // if the previous move was not opposite colour pawn moving
+                    if (real) fprintf(stderr, "Invalid move: Previous move was not opposite colour pawn moving\n");
                     validEnPassant = false;
                 }
             } else if (move.piece == BP) {
-                if (move.taken != BP) {
+                if (getPiece(enPassantPlace) != BP) {
                     // if the taken piece is not pawn of opposite colour
+                    if (real) fprintf(stderr, "Invalid move: En passant piece is not pawn of opposite colour\n");
                     validEnPassant = false;
                 }
                 if (lastMove.piece != BP) {
                     // if the previous move was not opposite colour pawn moving
+                    if (real) fprintf(stderr, "Invalid move: Previous move was not opposite colour pawn moving\n");
                     validEnPassant = false;
                 }
             }
@@ -642,9 +726,9 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
     for (PiecePos pp : piecePos) {
         if (pp.piece == WK || pp.piece == BK) {
             // piece is a king
-            int pos_x[] = {-1,0,1,1,1,0,-1,-1};
-            int pos_y[] = {1,1,1,0,-1,-1,-1,0};
-            for (int i = 0; i < 8; i++) {
+            int pos_x[] = {-1,0,1,1,1,0,-1,-1, -2, 2};
+            int pos_y[] = {1,1,1,0,-1,-1,-1,0, 0, 0};
+            for (int i = 0; i < 10; i++) {
                 Board::Pos pos = {.x = pp.pos.x + pos_x[i], .y = pp.pos.y + pos_y[i]};
                 if (isInsideBoard(pos)) {
                     Board::Piece take = getPiece(pos);
