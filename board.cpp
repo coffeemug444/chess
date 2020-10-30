@@ -526,8 +526,8 @@ bool Board::isLegalMove (Board::Move move, bool real) {
 
     if (move.piece == BN || move.piece == WN) {
         // knight is moving
-        if (abs(dx) != 1 && abs(dy) != 2) {
-            if (abs(dy) != 1 && abs(dx) != 2) {
+        if (!(abs(dx) == 1 && abs(dy) == 2)) {
+            if (!(abs(dy) == 1 && abs(dx) == 2)) {
                 if (real) fprintf(stderr, "Invalid move: Knight is not moving in L shape\n");
                 return false;
             }
