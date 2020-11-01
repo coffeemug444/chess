@@ -3,13 +3,13 @@
 #include "stdlib.h"
 
 Board::Board () {
-    hashes = new unsigned char[1];
+    hashes = (unsigned char*)malloc(sizeof(unsigned char));
     reset();
 }
 
 void Board::reset () {
     turn_ = WHITE;
-    delete hashes;
+    free(hashes);
     state_.clear();
     state_ = { {WR, WP, EM, EM, EM, EM, BP, BR},
                {WN, WP, EM, EM, EM, EM, BP, BN},
@@ -22,8 +22,11 @@ void Board::reset () {
              };
     moves_.clear();
     states_.clear();
-    hashes = new unsigned char[4294967296];
-    Board::hashBoard();
+    hashes = (unsigned char*)malloc(8192 * sizeof(unsigned char));
+    lastHash = 0;
+    for (int i = 0; i < 8192; i++) {
+        hashes[i] = 0;
+    }
 }
 
 Board::Piece Board::getPiece (Board::Pos pos) {
@@ -31,6 +34,8 @@ Board::Piece Board::getPiece (Board::Pos pos) {
 }
 
 int Board::doMove (Board::Move move) {
+    
+
     if (move.piece == EM) {
         fprintf(stderr, "Invalid move: An empty position was selected to move\n");
         return -1;
@@ -69,6 +74,7 @@ int Board::doMove (Board::Move move) {
     if (!Board::isLegalMove(move, true)) {
         return -1;
     }
+
 
     moves_.push_back(move);
     states_.push_back(state_);
@@ -110,6 +116,10 @@ int Board::doMove (Board::Move move) {
 
     Board::switchPlayer();
     Board::isCheck(turn_, true);   // get console log of check
+
+    Board::hashBoard();
+    unsigned char occurances = hashes[lastHash];
+
     if (Board::isCheckmate(turn_)){
         // last player to move just won the game
         printf("Checkmate, %s wins\n", turn_ == WHITE ? "black" : "white");
@@ -123,7 +133,7 @@ int Board::doMove (Board::Move move) {
         }
     }
 
-    if (Board::isDraw()) {
+    if (Board::isDraw(occurances)) {
         return -1;
     }
 
@@ -133,18 +143,22 @@ int Board::doMove (Board::Move move) {
 
 // checks several scenarios where the game is unwinnable. see https://en.wikipedia.org/wiki/Draw_(chess)
 // for more information
-bool Board::isDraw () {
-    if (!Board::isCheck(turn_, false) && getLegalMoves(turn_).size() == 0) {
+bool Board::isDraw (unsigned char occurances) {
+    std::vector <Board::Move> moves;
+    getLegalMoves(turn_, &moves);
+    if (!Board::isCheck(turn_, false) && moves.size() == 0) {
         // player is not in check but has no legal moves. Stalemate
         return true;
     }
 
-    if (hashes[lastHash] >= 3) {
+
+    if (occurances >= 3) {
         // same board has repeated 3 times
         return true;
     }
 
-    int pC[13];
+    int pC[13] = {0};
+
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             pC[state_[i][j]]++;
@@ -183,15 +197,22 @@ void Board::hashBoard () {
             }
         }
     }
-    hashes[hash]++;
+    hash = hash % 8192;
+    hashes[hash] += 1;
     lastHash = hash;
+}
+
+void Board::unhashBoard () {
+    Board::hashBoard();
+    hashes[lastHash] -= 2;
 }
 
 // verifies if the current board state is a checkmate by checking if there
 // are any remaining valid moves (moving into check is an invalid move).
 // returns true if 'player' is in checkmate
 bool Board::isCheckmate (Board::Player player) {
-    std::vector <Board::Move> moves = getLegalMoves(player);
+    std::vector <Board::Move> moves;
+    getLegalMoves(player, &moves);
     return moves.size() == 0 && Board::isCheck(player, false);
 }
 
@@ -336,20 +357,19 @@ bool Board::isInsideBoard(Board::Pos pos) {
     return true;
 }
 
-std::vector <std::vector <std::vector <Board::Piece>>> Board::getPreviousBoardStates () {
-    std::vector <std::vector <std::vector <Board::Piece>>> states = states_;
-    return states;
+void Board::getPreviousBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* states) {
+    *states = states_;
 }
 
-std::vector <std::vector <std::vector <Board::Piece>>> Board::getNextBoardStates () {
-    std::vector<Board::Move> legalMoves = getLegalMoves(turn_);
-    std::vector <std::vector <std::vector <Board::Piece>>> nextStates;
+void Board::getNextBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* nextStates) {
+    std::vector<Board::Move> legalMoves;
+    getLegalMoves(turn_, &legalMoves);
+
     for (Board::Move m : legalMoves) {
         doMove(m);
-        nextStates.push_back(state_);
+        nextStates->push_back(state_);
         undoMove();
     }
-    return nextStates;
 }
 
 // checks to see if there are pieces in between two points. Points specified
@@ -624,6 +644,7 @@ bool Board::isLegalMove (Board::Move move, bool real) {
         if (real) fprintf(stderr, "Invalid move: Move leaves king in check\n");
         isValid = false;
     }
+    Board::hashBoard();
     undoMove();
     return isValid;
 }
@@ -698,10 +719,16 @@ bool Board::isValidPawnMove (Board::Move move, bool real) {
             enPassantPlace.x = move.endPos.x;
             enPassantPlace.y = move.startPos.y;
 
-            Board::Move lastMove = moves_.back();
+            bool validEnPassant;
+            Board::Move lastMove;
+            if (moves_.size() == 0) {
+                validEnPassant = false;
+            } else {
+                lastMove = moves_.back();
+                validEnPassant = true;
+            }
 
-            bool validEnPassant = true;
-
+            if (validEnPassant) {
             if (abs(lastMove.startPos.y - lastMove.endPos.y) != 2) {
                 // if the previous move was not a dy of 2
                 if (real) fprintf(stderr, "Invalid move: previous move was not a move forward of size 2\n");
@@ -735,6 +762,7 @@ bool Board::isValidPawnMove (Board::Move move, bool real) {
                     if (real) fprintf(stderr, "Invalid move: Previous move was not opposite colour pawn moving\n");
                     validEnPassant = false;
                 }
+            }
             }
             if (!validEnPassant) {
                 if (real) fprintf(stderr, "Invalid move: Pawn cannot move like that\n");
@@ -774,10 +802,10 @@ void Board::undoMove () {
         // no moves to undo
         return;
     }
+    Board::unhashBoard();
     state_ = states_.back();
     moves_.pop_back();
     states_.pop_back();
-
     Board::switchPlayer();
 }
 
@@ -790,7 +818,7 @@ void Board::getState(Board::Piece state [16][16]) {
     }
 }
 
-std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
+void Board::getLegalMoves (Board::Player player, std::vector <Board::Move>* moves) {
     typedef struct PiecePos {
         Board::Piece piece;
         Board::Pos pos;
@@ -808,7 +836,6 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
         }
     }
 
-    std::vector <Board::Move> moves;
     // check every possible move for each piece and add only moves that satisfy isLegalMove()
     for (PiecePos pp : piecePos) {
         if (pp.piece == WK || pp.piece == BK) {
@@ -821,7 +848,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     Board::Piece take = getPiece(pos);
                     Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
                     if (isLegalMove(move, false)) {
-                        moves.push_back(move);
+                        moves->push_back(move);
                     }
                 }
             }
@@ -844,7 +871,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
                         if (isLegalMove(move, false)) {
-                            moves.push_back(move);
+                            moves->push_back(move);
                         }
                     }
                 }
@@ -864,7 +891,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
                         if (isLegalMove(move, false)) {
-                            moves.push_back(move);
+                            moves->push_back(move);
                         }
                     }
                 }
@@ -880,7 +907,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     Board::Piece take = getPiece(pos);
                     Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
                     if (isLegalMove(move, false)) {
-                        moves.push_back(move);
+                        moves->push_back(move);
                     }
                 }
             }
@@ -899,7 +926,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                         Board::Piece take = getPiece(pos[j]);
                         Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
                         if (isLegalMove(move, false)) {
-                            moves.push_back(move);
+                            moves->push_back(move);
                         }
                     }
                 }
@@ -923,7 +950,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                 move.endPos = pos;
                 move.taken = take;
                 if (isLegalMove(move, false)) {
-                    moves.push_back(move);
+                    moves->push_back(move);
                 }
             }
             if (pp.piece == WP) {
@@ -936,7 +963,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                 move.endPos = pos;
                 move.taken = take;
                 if (isLegalMove(move, false)) {
-                    moves.push_back(move);
+                    moves->push_back(move);
                 }
             }
             if (pp.piece == WP) {
@@ -956,7 +983,7 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     }
                 }
                 if (isLegalMove(move, false)) {
-                    moves.push_back(move);
+                    moves->push_back(move);
                 }
             }
             pos.x -= 2;
@@ -971,10 +998,9 @@ std::vector <Board::Move> Board::getLegalMoves (Board::Player player) {
                     }
                 }
                 if (isLegalMove(move, false)) {
-                    moves.push_back(move);
+                    moves->push_back(move);
                 }
             }
         }
     }
-    return moves;
 }

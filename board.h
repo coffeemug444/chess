@@ -49,16 +49,17 @@ private:
     std::vector <Move> moves_;
     std::vector <std::vector <std::vector <Board::Piece>>> states_; // vector of all previous board states
 
-    unsigned char* hashes; // stores hashes of all previous game states
-    unsigned char lastHash; // stores last hash
+    unsigned char* hashes; // stores count of hashes of all previous game states
+    unsigned lastHash; // stores last hash
 
     void setPiece (Board::Pos pos, Board::Piece piece);
     void switchPlayer ();
     bool isPieceBetween (Board::Pos a, Board::Pos b);
     bool isValidPawnMove (Board::Move move, bool real);
     bool isInsideBoard (Board::Pos pos);
-    bool isDraw ();
+    bool isDraw (unsigned char occurances);
     void hashBoard ();
+    void unhashBoard ();
 
 public:
     Board ();
@@ -68,9 +69,9 @@ public:
     bool isCheckmate (Board::Player player);
     bool isCheck (Board::Player player, bool real);
     bool isLegalMove (Board::Move move, bool real);
-    std::vector<Board::Move> getLegalMoves (Board::Player player);
-    std::vector <std::vector <std::vector <Board::Piece>>> getPreviousBoardStates ();
-    std::vector <std::vector <std::vector <Board::Piece>>> getNextBoardStates ();
+    void getLegalMoves (Board::Player player, std::vector <Board::Move>* moves);
+    void getPreviousBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* states);
+    void getNextBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* states);
     void undoMove ();
     void reset ();
 };
