@@ -1,1006 +1,778 @@
-#include "board.h"
-#include "stdio.h"
-#include "stdlib.h"
+#include "board.hpp"
+#include <vector>
+#include <algorithm>
 
-Board::Board () {
-    hashes = (unsigned char*)malloc(sizeof(unsigned char));
-    reset();
+#include <iostream>
+#include <string>
+
+
+
+bool operator<(const std::optional<PieceType>& l, const std::optional<PieceType>& r)
+{
+   if (not l.has_value() and r.has_value()) return true;
+   if (l.has_value() and not r.has_value()) return false;
+   if (not l.has_value() and not r.has_value()) return false;
+   // both l and r have values
+   return static_cast<int>(l.value()) < static_cast<int>(r.value());
 }
 
-void Board::reset () {
-    turn_ = WHITE;
-    free(hashes);
-    state_.clear();
-    state_ = { {WR, WP, EM, EM, EM, EM, BP, BR},
-               {WN, WP, EM, EM, EM, EM, BP, BN},
-               {WB, WP, EM, EM, EM, EM, BP, BB},
-               {WQ, WP, EM, EM, EM, EM, BP, BQ},
-               {WK, WP, EM, EM, EM, EM, BP, BK},
-               {WB, WP, EM, EM, EM, EM, BP, BB},
-               {WN, WP, EM, EM, EM, EM, BP, BN},
-               {WR, WP, EM, EM, EM, EM, BP, BR}
-             };
-    moves_.clear();
-    states_.clear();
-    hashes = (unsigned char*)malloc(8192 * sizeof(unsigned char));
-    lastHash = 0;
-    for (int i = 0; i < 8192; i++) {
-        hashes[i] = 0;
-    }
+std::ostream& operator<<(std::ostream& out, const Square& sq)
+{
+   switch (sq.row)
+   {
+      case 0: out << "A"; break;
+      case 1: out << "B"; break;
+      case 2: out << "C"; break;
+      case 3: out << "D"; break;
+      case 4: out << "E"; break;
+      case 5: out << "F"; break;
+      case 6: out << "G"; break;
+      case 7: out << "H"; break;
+      default: return out;
+   }
+   out << sq.col + 1;
+   return out;
 }
 
-Board::Piece Board::getPiece (Board::Pos pos) {
-    return state_ [pos.x - 1][pos.y - 1];
+
+std::pair<int, int> getDirectionOffset(Direction dir)
+{
+   switch (dir)
+   {
+      case N:   return { 1, 0};
+      case NE:  return { 1, 1};
+      case E:   return { 0, 1};
+      case SE:  return {-1, 1};
+      case S:   return {-1, 0};
+      case SW:  return {-1,-1};
+      case W:   return { 0,-1};
+      case NW:  return { 1,-1};
+      case NNE: return { 2, 1};
+      case NEE: return { 1, 2};
+      case SEE: return {-1, 2};
+      case SSE: return {-2, 1};
+      case SSW: return {-2,-1};
+      case SWW: return {-1,-2};
+      case NWW: return { 1,-2};
+      case NNW: return { 2,-1};
+      default:  return { 0, 0}; // unreachable
+   }
 }
 
-int Board::doMove (Board::Move move) {
-    
 
-    if (move.piece == EM) {
-        fprintf(stderr, "Invalid move: An empty position was selected to move\n");
-        return -1;
-    }
-    if (move.startPos.x < 1 || move.startPos.x > 8 || move.startPos.y < 1 || move.startPos.y > 8) {
-        fprintf(stderr, "Invalid move: Selected start position is outside the range of the board [x, y] : {1, 8}\n");
-        return -1;
-    }
-    if (getPiece(move.startPos) != move.piece) {
-        fprintf(stderr, "Invalid move: The piece in the starting position is not the piece selected\n");
-        return -1;
-    }
-    if (turn_ == WHITE && (move.piece <= BP) && (move.piece >= BK)) {
-        fprintf(stderr, "Invalid move: It is white's turn to move, but a black piece was selected\n");
-        return -1;
-    }
-    if (turn_ == BLACK && (move.piece <= WP) && (move.piece >= WK)) {
-        fprintf(stderr, "Invalid move: It is black's turn to move, but a white piece was selected\n");
-        return -1;
-    }
-    
-
-    // player has selected a valid piece. Check to see if the place they're moving it to is valid.
-    
-    if (move.endPos.x < 1 || move.endPos.x > 8 || move.endPos.y < 1 || move.endPos.y > 8) {
-        fprintf(stderr, "Invalid move: Selected end position is outside the range of the board [x, y] : {1, 8}\n");
-        return -1;
-    }
-
-    if (move.piece != WP && move.piece != BP) {
-        if (getPiece(move.endPos) != move.taken) {
-            fprintf(stderr, "Invalid move: The piece in the ending position is not the piece specified\n");
-            return -1;
-        }
-    }
-    if (!Board::isLegalMove(move, true)) {
-        return -1;
-    }
-
-
-    moves_.push_back(move);
-    states_.push_back(state_);
-
-    if (move.taken == EM && (move.startPos.x - move.endPos.x) != 0 && (move.piece == BP || move.piece == WP)) {
-        // have already verified this is a valid move, there must have been
-        // an en passant.
-        Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
-        Board::setPiece(pos, EM);
-    }
-    if ((move.piece == BK || move.piece == WK) && abs(move.startPos.x - move.endPos.x) == 2) {
-        // have already verified this is a valid move, there must have been
-        // a castle
-        Board::Pos tmp = move.endPos;
-        if ((move.endPos.x - move.startPos.x) > 0) {
-            tmp.x += 1;
-            Board::setPiece(tmp, EM);
-            tmp.x -= 2;
-            Board::setPiece(tmp, move.piece == BK ? BR : WR);
-        }
-        if ((move.endPos.x - move.startPos.x) < 0) {
-            tmp.x -= 2;
-            Board::setPiece(tmp, EM);
-            tmp.x += 3;
-            Board::setPiece(tmp, move.piece == BK ? BR : WR);
-        }
-    }
-    Board::setPiece(move.startPos, EM);
-    Board::setPiece(move.endPos, move.piece);
-    // if the moved piece was a pawn that reached the end of the board
-    // upgrade it to a queen    
-    if (move.piece == WP && move.endPos.y == 8) {
-        Board::setPiece(move.endPos, WQ);
-    } else if (move.piece == BP && move.endPos.y == 1) {
-        Board::setPiece(move.endPos, BQ);
-    }
-
-
-
-    Board::switchPlayer();
-    Board::isCheck(turn_, true);   // get console log of check
-
-    Board::hashBoard();
-    unsigned char occurances = hashes[lastHash];
-
-    if (Board::isCheckmate(turn_)){
-        // last player to move just won the game
-        printf("Checkmate, %s wins\n", turn_ == WHITE ? "black" : "white");
-        if (turn_ == WHITE) {
-            // black just won
-            return 2;
-        }
-        if (turn_ == BLACK) {
-            // white just won
-            return 1;
-        }
-    }
-
-    if (Board::isDraw(occurances)) {
-        return -1;
-    }
-
-    // valid move, game is still continuing
-    return 0;
+void Board::printBoard() const
+{
+   for (int row = 7; row >= 0; row--)
+   {
+      std::cout << char('A' + row) << ' ';
+      for (int col = 0; col < 8; col++)
+      {
+         bool inverted = (row&1)^(col&1);
+         std::cout << "\033[" << (inverted ? "7m" : "27m");
+         OptionalPiece p = getPiece({row, col});
+         if (p.has_value())
+         {
+            bool w = p.value().color == WHITE;
+            w = w ^ inverted;
+            switch(p.value().type)
+            {
+               case ROOK:   std::cout << (w?"♜":"♖"); break;
+               case KNIGHT: std::cout << (w?"♞":"♘"); break;
+               case BISHOP: std::cout << (w?"♝":"♗"); break;
+               case QUEEN:  std::cout << (w?"♛":"♕"); break;
+               case KING:   std::cout << (w?"♚":"♔"); break;
+               case PAWN:   std::cout << (w?"♟":"♙"); break;
+            }
+            std::cout << ' ';
+         }
+         else std::cout << "  ";
+         std::cout << "\033[27m";
+      }
+      std::cout << '\n';
+   }
+   std::cout << "  1 2 3 4 5 6 7 8\n";
 }
 
-// checks several scenarios where the game is unwinnable. see https://en.wikipedia.org/wiki/Draw_(chess)
-// for more information
-bool Board::isDraw (unsigned char occurances) {
-    std::vector <Board::Move> moves;
-    getLegalMoves(turn_, &moves);
-    if (!Board::isCheck(turn_, false) && moves.size() == 0) {
-        // player is not in check but has no legal moves. Stalemate
-        return true;
-    }
+void Board::doMove(const Move& move)
+{
+   Piece piece = getPiece(move.start).value();
 
+   bool capture = getPiece(move.end).has_value();
+   bool en_passant = piece.type == PAWN and move.end == m_en_passant_square;
+   if (en_passant)
+   {
+      // find and remove the captured pawn
+      getPiece(Square{.row = (piece.color == WHITE ? 4 : 3), .col = move.end.col}).reset();
+   }
 
-    if (occurances >= 3) {
-        // same board has repeated 3 times
-        return true;
-    }
+   // castling
+   if (piece.type == KING and std::abs(move.end.col - move.start.col) == 2)
+   {
+      bool kings_side = (move.end.col > move.start.col);
+      OptionalPiece& rook = getPiece(Square{.row = move.start.row, .col = (kings_side ? 7 : 0)});
+      getPiece(Square{.row = move.start.row, .col = (kings_side ? 5 : 3)}) = rook.value();
+      rook.reset();
+   }
 
-    int pC[13] = {0};
+   // wtf?!?! you can't take the king??!?
+   if (getPiece(move.end).has_value() && getPiece(move.end).value().type == KING) 
+   {
+      std::cout << "uhhhhh tried to take the king??\n";
+      throw -1;
+   }
 
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            pC[state_[i][j]]++;
-        }
-    }
-    if (pC[WQ] == 0 && pC[BQ] == 0 && pC[BP] == 0 && pC[WP] == 0) {
-        // no pawns or queens
-        if (pC[WB] == 0 && pC[BB] == 0 && pC[BN] == 0 && pC[WN] == 0 && pC[BR] == 0 && pC[WR] == 0) {
-            // only kings remain
-            return true;
-        }
-        if ((pC[WB] == 1 && pC[BB] == 0 || pC[WB] == 1 && pC[BB] == 0) && pC[BN] == 0 && pC[WN] == 0 && pC[BR] == 0 && pC[WR] == 0) {
-            // only kings and one bishop
-            return true;
-        }
-        if (pC[WB] == 1 && pC[BB] == 0 && (pC[BN] == 1 && pC[WN] == 0 || pC[BN] == 0 && pC[WN] == 1) && pC[BR] == 0 && pC[WR] == 0) {
-            // only kings and one knight
-            return true;
-        }
-    }
-    return false;
+   getPiece(move.end) = piece;
+   getPiece(move.start).reset();
+
+   if (move.promotion.has_value())
+   {
+      getPiece(move.end).value().type = move.promotion.value();
+   }
+
+   if (piece.type == KING)
+   {
+      if (piece.color == WHITE)
+      {
+         m_white_king = move.end;
+         m_white_kingside_available = false;
+         m_white_queenside_available = false;
+      }
+      else
+      {
+         m_black_king = move.end;
+         m_black_kingside_available = false;
+         m_black_queenside_available = false;
+      }
+   }
+
+   if (piece.type == ROOK)
+   {
+      if (piece.color == WHITE)
+      {
+         if (move.start == Square{.row = 0, .col = 7}) m_white_kingside_available = false;
+         if (move.start == Square{.row = 0, .col = 0}) m_white_queenside_available = false;
+      }
+      else
+      {
+         if (move.start == Square{.row = 7, .col = 7}) m_black_kingside_available = false;
+         if (move.start == Square{.row = 7, .col = 0}) m_black_queenside_available = false;
+      }
+   }
+
+   m_en_passant_square.reset();
+   if (piece.type == PAWN && std::abs(move.start.row - move.end.row) == 2)
+   {
+      // pawn did a double advance
+      int row = (move.start.row + move.end.row) / 2;
+      m_en_passant_square = Square{.row = row, .col = move.start.col};
+   }
+
+   m_current_player = (piece.color == WHITE ? BLACK : WHITE);
+   if (piece.type == PAWN or capture) m_halfmoves = 0;
+   else m_halfmoves++;
+
+   if (m_current_player == WHITE) m_fullmoves++;
+   rebuildPins(BLACK);
+   rebuildPins(WHITE);
+   rebuildThreatsAndChecks();
+
 }
 
-// uses FNV1 hash algrorithm to hash and store the current board state
-void Board::hashBoard () {
-    int numBytes = sizeof(Board::Piece);
-    unsigned int hash = 2166136261;
-    unsigned int prime = 16777619;
+std::set<Move> Board::getAllLegalMoves() const
+{
+   std::set<Move> legal_moves;
 
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            char* data = (char*)(&state_[i][j]);
-            for (int b = 0; b < numBytes; b++) {
-                hash = hash ^ data[b];
-                hash = hash * prime;
-            }
-        }
-    }
-    hash = hash % 8192;
-    hashes[hash] += 1;
-    lastHash = hash;
+   if (m_halfmoves >= 50)
+   {
+      std::cout << "50 move rule - game over\n";
+      return legal_moves;
+   }
+
+   // other checks, insufficient material, board repetition
+
+
+
+   auto add_legal_moves = [&legal_moves](const std::set<Move>& new_legal_moves) {
+      legal_moves.insert(new_legal_moves.begin(), new_legal_moves.end());
+   };
+
+   for (int row = 0; row < 8; row++)
+   {
+      for (int col = 0; col < 8; col++)
+      {
+         Square square = { .row = row, .col = col };
+         const OptionalPiece& p = getPiece(square);
+         if (not p.has_value()) continue;
+         if (p.value().color != m_current_player) continue;
+         switch (p.value().type)
+         {
+            case PAWN:   add_legal_moves(getAllLegalPawnMoves(square));   break;
+            case ROOK:   add_legal_moves(getAllLegalRookMoves(square));   break;
+            case KNIGHT: add_legal_moves(getAllLegalKnightMoves(square)); break;
+            case BISHOP: add_legal_moves(getAllLegalBishopMoves(square)); break;
+            case KING:   add_legal_moves(getAllLegalKingMoves(square));   break;
+            case QUEEN:  add_legal_moves(getAllLegalQueenMoves(square));  break;
+         }
+      }
+   }
+
+   if (legal_moves.size() == 0)
+   {
+      printBoard();
+      if (m_check_locations.size() == 0)
+      {
+         std::cout << "Stalemate\n";
+      }
+      else
+      {
+         std::cout << "Checkmate, " << (m_current_player == WHITE ? "black" : "white") << " wins\n";
+      }
+   }
+
+   return legal_moves;
 }
 
-void Board::unhashBoard () {
-    Board::hashBoard();
-    hashes[lastHash] -= 2;
+std::set<Move> Board::getAllLegalPawnMoves(const Square& start) const
+{
+   // if the king is in check from two (or more??) locations
+   // then only the king has legal moves
+   if (m_check_locations.size() > 1) return {}; 
+
+   std::set<Move> legal_moves;
+   const Piece& pawn = getPiece(start).value();
+   int dy = pawn.color == WHITE ? 1 : -1;
+
+   Square dst = start;
+   dst.row += dy;
+   
+   if (squareIsOnBoard(dst) and not getPiece(dst).has_value())
+   {
+      // the space in front of the pawn is free
+      bool last_row = dst.row == (pawn.color == WHITE ? 7 : 0);
+      if (last_row)
+      {
+         for (PieceType promotion_type : {ROOK, KNIGHT, BISHOP, QUEEN})
+         {
+            legal_moves.insert({start, dst, promotion_type});
+         }
+      }
+      else legal_moves.insert({start, dst});
+   }
+
+   // if we're on the starting row it could be possible to do a double advance
+   if (start.row == (pawn.color == WHITE ? 1 : 6))
+   {
+      dst.row += dy;
+      if (not getPiece(dst).has_value() and not getPiece({.row = dst.row - dy, .col = dst.col}).has_value())
+      {
+         // the two spaces in front of the pawn are free
+         legal_moves.insert({start, dst});
+      }
+      dst.row -= dy;
+   }
+
+
+   // if the destination square has a piece of the opposite color, or it's an en passant target
+   auto legal_pawn_capture = [&](Square dst) {
+   return (squareIsOnBoard(dst) and 
+           getPiece(dst).has_value() and 
+           getPiece(dst).value().color != pawn.color) || 
+          (m_en_passant_square.has_value() and 
+           m_en_passant_square.value() == dst);
+   };
+
+   dst.col += 1;
+   if (legal_pawn_capture(dst)) legal_moves.insert({start, dst});
+
+   dst.col -= 2;
+   if (legal_pawn_capture(dst)) legal_moves.insert({start, dst});
+
+   // if there are move restrictions (piece is pinned, king is in
+   // check), limit moves to the union of legal_moves and restrictions
+   return restrictedSubset(legal_moves, moveRestrictions(start));
 }
 
-// verifies if the current board state is a checkmate by checking if there
-// are any remaining valid moves (moving into check is an invalid move).
-// returns true if 'player' is in checkmate
-bool Board::isCheckmate (Board::Player player) {
-    std::vector <Board::Move> moves;
-    getLegalMoves(player, &moves);
-    return moves.size() == 0 && Board::isCheck(player, false);
+std::set<Move> Board::getAllLegalKnightMoves(const Square& start) const
+{
+   // if the king is in check from two (or more??) locations
+   // then only the king has legal moves
+   if (m_check_locations.size() > 1) return {}; 
+   std::set<Move> legal_moves;
+   const Piece& knight = getPiece(start).value();
+
+   for (Direction dir : knightDirs())
+   {
+      auto [north, east] = getDirectionOffset(dir);
+      Square dst {.row = start.row + north, .col = start.col + east};
+      if (squareIsOnBoard(dst) and 
+          (not getPiece(dst).has_value() or 
+           (getPiece(dst).has_value() and getPiece(dst).value().color != knight.color)))
+      {
+         legal_moves.insert({start, dst});
+      }
+   }
+   
+   return restrictedSubset(legal_moves, moveRestrictions(start));
 }
 
-// Returns true if 'pl' is in check
-bool Board::isCheck (Board::Player pl, bool real) {
-    Board::Pos king_pos;
-    Piece p;
-    for (int i = 1; i < 9; i++) {
-        for (int j = 1; j < 9; j++) {
-            king_pos = {.x = i, .y = j};
-            p = getPiece(king_pos);
-            if ((pl == WHITE && p == WK) || (pl == BLACK && p == BK)) {
-                goto outOfLoop; // ya love to see it ;)
-            }
-        }
-    }
-    outOfLoop:
-    // check all knight jumps from king position
-    {
-        int x_pos[] = {-2,-1,1,2,2,1,-1,-2};
-        int y_pos[] = {1,2,2,1,-1,-2,-2,-1};
-        for (int i = 0; i < 8; i++) {
-            Board::Pos pos = {.x = king_pos.x + x_pos[i], .y = king_pos.y + y_pos[i]};
-            if (isInsideBoard(pos)) {
-                p = getPiece(pos);
-                if ((pl == WHITE && p == BN) || (pl == BLACK && p == WN)) {
-                    if (real) printf("check via knight at %d, %d\n", pos.x, pos.y);
-                    return true;
-                }
-            }
-        }
-    }
+std::set<Move> Board::getAllLegalRookMoves(const Square& start) const
+{
+   // if the king is in check from two (or more??) locations
+   // then only the king has legal moves
+   if (m_check_locations.size() > 1) return {}; 
+   std::set<Move> legal_moves;
+   const Piece& rook = getPiece(start).value();
 
-    // check two pawn positions
-    {
-        Board::Pos pos = king_pos;
-        pos.x -= 1;
-        if (pl == WHITE) {
-            pos.y += 1;
-        } else {
-            pos.y -= 1;
-        }
-        if (isInsideBoard(pos)) {
-            p = getPiece(pos);
-            if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
-                if (real) printf("check via pawn at %d, %d\n", pos.x, pos.y);
-                return true;
-            }
-        }
-        pos.x += 2;
-        if (isInsideBoard(pos)) {
-            p = getPiece(pos);
-            if ((pl == WHITE && p == BP) || (pl == BLACK && p == WP)) {
-                if (real) printf("check via pawn at %d, %d\n", pos.x, pos.y);
-                return true;
-            }
-        }
-    }
-
-    // check surrounding tiles for opponent king
-    {
-        int x_pos[] = {-1,0,1,1,1,0,-1,-1};
-        int y_pos[] = {1,1,1,0,-1,-1,-1,0};
-        for (int i = 0; i < 8; i++) {
-            Board::Pos pos = {.x = king_pos.x + x_pos[i], .y = king_pos.y + y_pos[i]};
-            if (isInsideBoard(pos)) {
-                p = getPiece(pos);
-                if ((pl == WHITE && p == BK) || (pl == BLACK && p == WK)) {
-                    if (real) printf("check via king at %d, %d\n", pos.x, pos.y);
-                    return true;
-                }
-            }
-        }
-    }
-    
-    // check in a straight lines
-    for (int i = 1; i < 8; i++) {
-        Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
-        pos[0].x -= i;
-        pos[1].x += i;
-        pos[2].y -= i;
-        pos[3].y += i;
-
-        for (int j = 0; j < 4; j++) {
-            if (isInsideBoard(pos[j])) {
-                p = getPiece(pos[j]);
-                if ((pl == BLACK && (p >= WK && p <= WP)) || (pl == WHITE && (p >= BK && p <= BP))) {
-                    // piece on the tile is an enemy
-                    if (!isPieceBetween(pos[j], king_pos)) {
-                        if ((pl == WHITE && p == BR) || (pl == BLACK && p == WR)) {
-                            if (real) printf("check via rook at %d, %d\n", pos[j].x, pos[j].y);
-                            return true;
-                        }
-                        if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
-                            if (real) printf("check via queen at %d, %d\n", pos[j].x, pos[j].y);
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // check in diagonal lines
-    for (int i = 1; i < 8; i++) {
-        Board::Pos pos[] = {king_pos, king_pos, king_pos, king_pos};
-        pos[0].x -= i; pos[0].y -= i;
-        pos[1].x += i; pos[1].y -= i;
-        pos[2].x -= i; pos[2].y += i;
-        pos[3].x += i; pos[3].y += i;
-
-        for (int j = 0; j < 4; j++) {
-            if (isInsideBoard(pos[j])) {
-                p = getPiece(pos[j]);
-                if ((pl == BLACK && (p >= WK && p <= WP)) || (pl == WHITE && (p >= BK && p <= BP))) {
-                    // piece on the tile is an enemy
-                    if (!isPieceBetween(pos[j], king_pos)) {
-                        if ((pl == WHITE && p == BB) || (pl == BLACK && p == WB)) {
-                            if (real) printf("check via bishop at %d, %d\n", pos[j].x, pos[j].y);
-                            return true;
-                        }
-                        if ((pl == WHITE && p == BQ) || (pl == BLACK && p == WQ)) {
-                            if (real) printf("check via queen at %d, %d\n", pos[j].x, pos[j].y);
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // king not under attack by pawns, knights, or any pieces on a straight or diagonal line
-    return false;
+   for (Direction dir : rankAndFileDirs())
+   {
+      auto [north, east] = getDirectionOffset(dir);
+      Square dst {.row = start.row + north, .col = start.col + east};
+      while (squareIsOnBoard(dst))
+      {
+         if (getPiece(dst).has_value())
+         {
+            if (getPiece(dst).value().color != rook.color) legal_moves.insert({start, dst});
+            break;
+         }
+         legal_moves.insert({start, dst});
+         dst.row += north;
+         dst.col += east;
+      }
+   }
+   
+   return restrictedSubset(legal_moves, moveRestrictions(start));
 }
 
-bool Board::isInsideBoard(Board::Pos pos) {
-    if (pos.x < 1 || pos.x > 8) {
-        return false;
-    } else if (pos.y < 1 || pos.y > 8) {
-        return false;
-    }
-    return true;
+std::set<Move> Board::getAllLegalBishopMoves(const Square& start) const
+{
+   // if the king is in check from two (or more??) locations
+   // then only the king has legal moves
+   if (m_check_locations.size() > 1) return {}; 
+   std::set<Move> legal_moves;
+   const Piece& bishop = getPiece(start).value();
+
+   for (Direction dir : diagonalDirs())
+   {
+      auto [north, east] = getDirectionOffset(dir);
+      Square dst {.row = start.row + north, .col = start.col + east};
+      while (squareIsOnBoard(dst))
+      {
+         if (getPiece(dst).has_value())
+         {
+            if (getPiece(dst).value().color != bishop.color) legal_moves.insert({start, dst});
+            break;
+         }
+         legal_moves.insert({start, dst});
+         dst.row += north;
+         dst.col += east;
+      }
+   }
+   
+
+   return restrictedSubset(legal_moves, moveRestrictions(start));
 }
 
-void Board::getPreviousBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* states) {
-    *states = states_;
+std::set<Move> Board::getAllLegalQueenMoves(const Square& start) const
+{
+   // if the king is in check from two (or more??) locations
+   // then only the king has legal moves
+   if (m_check_locations.size() > 1) return {}; 
+   std::set<Move> legal_moves;
+   const Piece& queen = getPiece(start).value();
+
+   for (Direction dir : queenDirs())
+   {
+      auto [north, east] = getDirectionOffset(dir);
+      Square dst {.row = start.row + north, .col = start.col + east};
+      while (squareIsOnBoard(dst))
+      {
+         if (getPiece(dst).has_value())
+         {
+            if (getPiece(dst).value().color != queen.color) legal_moves.insert({start, dst});
+            break;
+         }
+         legal_moves.insert({start, dst});
+         dst.row += north;
+         dst.col += east;
+      }
+   }
+   
+
+   return restrictedSubset(legal_moves, moveRestrictions(start));
 }
 
-void Board::getNextBoardStates (std::vector <std::vector <std::vector <Board::Piece>>>* nextStates) {
-    std::vector<Board::Move> legalMoves;
-    getLegalMoves(turn_, &legalMoves);
+std::set<Move> Board::getAllLegalKingMoves(const Square& start) const
+{
+   std::set<Move> legal_moves;
+   const Piece& king = getPiece(start).value();
+   Color color = king.color;
+   const std::set<Square>& threatened_squares = (color == WHITE ? m_threatened_white_squares : m_threatened_black_squares);
 
-    for (Board::Move m : legalMoves) {
-        doMove(m);
-        nextStates->push_back(state_);
-        undoMove();
-    }
+   for (Direction dir : queenDirs())
+   {
+      auto [north, east] = getDirectionOffset(dir);
+      Square dst = {.row = start.row + north, .col = start.col + east};
+      if (squareIsOnBoard(dst) && threatened_squares.find(dst) == threatened_squares.end() && // square is on the board and not threatened
+         (not getPiece(dst).has_value() ||   // there is no piece on the destination square or...
+         (getPiece(dst).has_value() && getPiece(dst).value().color != color)))   // the piece on the destination square is the opposite color
+      {
+         legal_moves.insert({start, dst});
+      }
+   }
+
+   if (m_check_locations.size() > 0) return legal_moves;
+   int king_row = (color == WHITE ? 0 : 7);
+   if (kingSideCastlePossible(color))  legal_moves.insert({start, {.row = king_row, .col = 6}});
+   if (queenSideCastlePossible(color)) legal_moves.insert({start, {.row = king_row, .col = 2}});
+   return legal_moves;
 }
 
-// checks to see if there are pieces in between two points. Points specified
-// must be a straight or exact diagonal line, and must lie within the bounds
-// of the board
-bool Board::isPieceBetween(Board::Pos a, Board::Pos b) {
-    int dx = b.x - a.x;
-    int dy = b.y - a.y;
+bool Board::kingSideCastlePossible(Color color) const
+{
+   const std::set<Square>& threatened_squares = (color == WHITE ? m_threatened_white_squares : m_threatened_black_squares);
+   int king_row = (color == WHITE ? 0 : 7);
+   if (not (color == WHITE ? m_white_kingside_available : m_black_kingside_available)) return false;
 
-    int x_sign = 1;
-    int y_sign = 1;
-    if (dx < 0) {
-        x_sign = -1;
-    } 
-    if (dy < 0) {
-        y_sign = -1;
-    }
+   Square between_square_1 {.row = king_row, .col = 5};
+   Square between_square_2 {.row = king_row, .col = 6};
 
-    Board::Pos tmp = a;
+   if (getPiece(between_square_1).has_value()) return false;
+   if (getPiece(between_square_2).has_value()) return false;
 
-    if ((abs(dx) <= 1) && (abs(dy) <= 1)) {
-        return false;
-    }
-    
-    if (dx == 0) {
-        // piece is moving along y axis
-        for (int i = 1; i < abs(dy); i++) {
-            tmp = a;
-            tmp.y += i * y_sign;
-            if (getPiece(tmp) != EM) {
-                return true;
-            }
-        }
-        return false;
-    }
-    if (dy == 0) {
-        // piece is moving along x axis
-        for (int i = 1; i < abs(dx); i++) {
-            tmp = a;
-            tmp.x += i * x_sign;
-            if (getPiece(tmp) != EM) {
-                return true;
-            }
-        }
-        return false;
-    }
-    for (int i = 1; i < abs(dx); i++) {
-        // piece is moving in a diagonal
-        tmp = a;
-        tmp.x += i * x_sign;
-        tmp.y += i * y_sign;
-        if (getPiece(tmp) != EM) {
-            return true;
-        }
-        
-    }
-    return false;
+   if (threatened_squares.find(between_square_1) != threatened_squares.end() ||
+       threatened_squares.find(between_square_2) != threatened_squares.end()) return false;
+   
+   return true;
 }
 
-// checks to see if the selected piece is in the specified starting position,
-// whether the selected piece is an actual piece, if the start and end positions
-// are within the range of the board, if the move is trying to capture a piece
-// of the same colour, if the shape of the move is correct for that piece,
-// and if the move will leave the player in check or not
-bool Board::isLegalMove (Board::Move move, bool real) {
-    if (getPiece(move.startPos) != move.piece) {
-        return false;
-    }
-    if (move.piece == EM) {
-        return false;
-    }
-    if (move.startPos.x < 1 || move.startPos.x > 8) {
-        return false;
-    }
-    if (move.startPos.y < 1 || move.startPos.y > 8) {
-        return false;
-    }
-    if (move.endPos.x < 1 || move.endPos.x > 8) {
-        return false;
-    }
-    if (move.endPos.y < 1 || move.endPos.y > 8) {
-        return false;
-    }
-    
+bool Board::queenSideCastlePossible(Color color) const
+{
+   const std::set<Square>& threatened_squares = (color == WHITE ? m_threatened_white_squares : m_threatened_black_squares);
+   int king_row = (color == WHITE ? 0 : 7);
+   if (not (color == WHITE ? m_white_queenside_available : m_black_queenside_available)) return false;
 
-    int dx = move.endPos.x - move.startPos.x;
-    int dy = move.endPos.y - move.startPos.y;
+   Square between_square_1 {.row = king_row, .col = 1};
+   Square between_square_2 {.row = king_row, .col = 2};
+   Square between_square_3 {.row = king_row, .col = 3};
 
-    if (dx == 0 && dy == 0) {
-        if (real) fprintf(stderr, "Invalid move: Movement must be non-zero\n");
-        return false;
-    }
-    
-    if ((move.piece >= BK && move.piece <= BP) && (move.taken >= BK && move.taken <= BP)) {
-        if (real) fprintf(stderr, "Invalid move: You cannot capture your own piece\n");
-        return false;
-    }
-    if ((move.piece >= WK && move.piece <= WP) && (move.taken >= WK && move.taken <= WP)) {
-        if (real) fprintf(stderr, "Invalid move: You cannot capture your own piece\n");
-        return false;
-    }
+   if (getPiece(between_square_1).has_value()) return false;
+   if (getPiece(between_square_2).has_value()) return false;
+   if (getPiece(between_square_3).has_value()) return false;
 
-
-    if (move.piece == BK || move.piece == WK) {
-        // king is moving
-        if (abs(dx) == 2) {
-            // must attempt a castle
-            // king must have never moved, rook must have never moved
-            for (Board::Move prevMove : moves_) {
-                if (prevMove.piece == move.piece) {
-                    if (real) fprintf(stderr, "Invalid move: King has moved before\n");
-                    return false;
-                }
-                if (prevMove.piece == BR) {
-                    if (dx > 0 && prevMove.startPos.x == 8 && prevMove.startPos.y == 8) {
-                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
-                        return false;
-                    }
-                    if (dx < 0 && prevMove.startPos.x == 1 && prevMove.startPos.y == 8) {
-                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
-                        return false;
-                    }
-                }
-                if (prevMove.piece == WR) {
-                    if (dx > 0 && prevMove.startPos.x == 8 && prevMove.startPos.y == 1) {
-                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
-                        return false;
-                    }
-                    if (dx < 0 && prevMove.startPos.x == 1 && prevMove.startPos.y == 1) {
-                        if (real) fprintf(stderr, "Invalid move: Rook has moved before\n");
-                        return false;
-                    }
-                }
-            }
-            // king and rook have never moved
-            Board::Pos tmp = move.startPos;
-            if (dx > 0) {
-                tmp.x = 8;
-                if (isPieceBetween(move.startPos, tmp)) {
-                    if (real) fprintf(stderr, "Invalid move: There are pieces between king and rook\n");
-                    return false;
-                }
-            } else if (dx < 0) {
-                tmp.x = 1;
-                if (isPieceBetween(move.startPos, tmp)) {
-                    if (real) fprintf(stderr, "Invalid move: There are pieces between king and rook\n");
-                    return false;
-                }
-            }
-        } else if (abs(dx) > 1 || abs(dy) > 1) {
-            if (real) fprintf(stderr, "Invalid move: King can only move distance 1\n");
-            return false;
-        }
-
-        // moving within distance 1 of startPos or was a valid castle
-    }
-
-    if (move.piece == BQ || move.piece == WQ) {
-        // queen is moving
-        if (dx != 0 && dy != 0) {
-            // if it is not moving in a straight line
-            if (abs(dx) != abs(dy)) {
-                if (real) fprintf(stderr, "Invalid move: Queen is not moving in a straight or diagonal line\n");
-                return false;
-            }
-        }
-        if (isPieceBetween(move.startPos, move.endPos)) {
-            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
-            return false;
-        }
-
-        // moving in a straight line or diagonal, no pieces in the
-        // way
-    }
-
-    if (move.piece == BB || move.piece == WB) {
-        // bishop is moving
-        if (abs(dx) != abs(dy)) {
-            if (real) fprintf(stderr, "Invalid move: Rook is not moving in a diagonal line\n");
-            return false;
-        }
-        if (isPieceBetween(move.startPos, move.endPos)) {
-            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
-            return false;
-        }
-
-        // moving in a diagonal, no pieces in the way
-    }
-
-    if (move.piece == BN || move.piece == WN) {
-        // knight is moving
-        if (!(abs(dx) == 1 && abs(dy) == 2)) {
-            if (!(abs(dy) == 1 && abs(dx) == 2)) {
-                if (real) fprintf(stderr, "Invalid move: Knight is not moving in L shape\n");
-                return false;
-            }
-        }
-
-        // moving in L shape
-    }
-
-    if (move.piece == BR || move.piece == WR) {
-        // rook is moving
-        if (dx != 0) {
-            // if moving in x direction
-            if (dy != 0) {
-                if (real) fprintf(stderr, "Invalid move: Rook is not moving in straight line\n");
-                return false;
-            }
-        }
-        if (isPieceBetween(move.startPos, move.endPos)) {
-            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
-            return false;
-        }
-
-        // moving in a straight line, no pieces in the way
-    }
-
-    if (move.piece == WP || move.piece == BP) {
-        if (!isValidPawnMove(move, real)) {
-            return false;
-        }
-    }
-
-    // is valid move so far. Do the move and see if the board is in check
-    moves_.push_back(move);
-    states_.push_back(state_);
-    Board::switchPlayer();
-
-    if (move.taken == EM && (move.startPos.x - move.endPos.x) != 0 && (move.piece == BP || move.piece == WP)) {
-        // have already verified this is a valid move, there must have been
-        // an en passant.
-        Board::Pos pos = {.x = move.endPos.x, .y = move.startPos.y};
-        Board::setPiece(pos, EM);
-    }
-    if ((move.piece == BK || move.piece == WK) && abs(move.startPos.x - move.endPos.x) == 2) {
-        // have already verified this is a valid move, there must have been
-        // a castle
-        Board::Pos tmp = move.endPos;
-        if ((move.endPos.x - move.startPos.x) > 0) {
-            tmp.x += 1;
-            Board::setPiece(tmp, EM);
-            tmp.x -= 2;
-            Board::setPiece(tmp, move.piece == BK ? BR : WR);
-        }
-        if ((move.endPos.x - move.startPos.x) < 0) {
-            tmp.x -= 2;
-            Board::setPiece(tmp, EM);
-            tmp.x += 3;
-            Board::setPiece(tmp, move.piece == BK ? BR : WR);
-        }
-    }
-    Board::setPiece(move.startPos, EM);
-    Board::setPiece(move.endPos, move.piece);
-    // if the moved piece was a pawn that reached the end of the board
-    // upgrade it to a queen    
-    if (move.piece == WP && move.endPos.y == 8) {
-        Board::setPiece(move.endPos, WQ);
-    } else if (move.piece == BP && move.endPos.y == 1) {
-        Board::setPiece(move.endPos, BQ);
-    }
-
-    bool isValid = true;
-    
-    Board::Player player;
-    if (move.piece >= WK && move.piece <= WP) {
-        player = WHITE;
-    } else {
-        player = BLACK;
-    }
-    if (Board::isCheck(player, real)) {
-        if (real) fprintf(stderr, "Invalid move: Move leaves king in check\n");
-        isValid = false;
-    }
-    Board::hashBoard();
-    undoMove();
-    return isValid;
+   if (threatened_squares.find(between_square_1) != threatened_squares.end() ||
+       threatened_squares.find(between_square_2) != threatened_squares.end() ||
+       threatened_squares.find(between_square_3) != threatened_squares.end()) return false;
+   
+   return true;
 }
 
-// checks to see if the current move is by a pawn and is
-// a valid move.
-bool Board::isValidPawnMove (Board::Move move, bool real) {
-    if (!(move.piece == WP || move.piece == BP)) {
-        // piece moving is not a pawn
-        return false;
-    }
+// If the piece on `square` is pinned it can only move along
+// the pin line. If the king is in check then the piece can
+// either block the check or take the piece making check.
+std::optional<std::set<Move>> Board::moveRestrictions(const Square& start) const
+{
+   if (m_check_locations.size() > 1) return std::set<Move> {}; // there are not valid moves to be made
+   std::set<Move> pin_restrictions;
 
-    int dx = move.endPos.x - move.startPos.x;
-    int dy = move.endPos.y - move.startPos.y;
-    
-    if (abs(dy) > 2 || abs(dx) > 1) {
-        // pawn is moving too far in x or y direction
-        if (real) fprintf(stderr, "Invalid move: Pawn moves too far\n");
-        return false;
-    }
-    if (abs(dy) == 2) {
-        if (abs(dx) != 0) {
-            // pawn cannot move in x direction if moving 2 in y
-            if (real) fprintf(stderr, "Invalid move: Pawn moves too far\n");
-            return false;
-        }
+   const Piece& piece = getPiece(start).value();
 
-        
+   // add pin squares
+   std::map<Square, Square> pins = (piece.color == WHITE ? m_pinned_white_pieces : m_pinned_black_pieces);
+   if (pins.find(start) != pins.end())
+   {
+      std::set<Square> pin_line = getSquaresOnLine(pins.at(start), start);
+      for (auto pin_square : pin_line) pin_restrictions.insert({start, pin_square});
+   } else if (m_check_locations.size() == 0) return {}; // not pinned, not in check
 
-        // these two checks are okay to use abs(dy). if the pawn 
-        // moves two from the starting position it will have either
-        // moved two forward or moved outside the board (which will
-        // not have happened if this function is being called)
-        if (move.piece == WP && move.startPos.y != 2) {
-            // pawn can only move 2 forward from starting position
-            if (real) fprintf(stderr, "Invalid move: Pawn can only move 2 forward from starting position\n");
-            return false;
-        }
-        if (move.piece == BP && move.startPos.y != 7) {
-            // pawn can only move 2 forward from starting position
-            if (real) fprintf(stderr, "Invalid move: Pawn can only move 2 forward from starting position\n");
-            return false;
-        }
-        if (isPieceBetween(move.startPos, move.endPos)) {
-            if (real) fprintf(stderr, "Invalid move: There is a piece in the way of the line\n");
-            return false;
-        }
-    }
-    if ((move.piece == WP && dy < 1) || (move.piece == BP && dy > -1)) {
-        // pawn must move forward
-        if (real) fprintf(stderr, "Invalid move: Pawn must move forward\n");
-        return false;
-    }
-    // piece has moved exactly 1 or 2 spaces forward
+   // this piece is pinned but its king is not in check
+   if (m_check_locations.size() != 1) return pin_restrictions;
 
-    if (dx == 0) {
-        if (getPiece(move.endPos) != EM || move.taken != EM) {
-            // pawn cannot capture by moving directly forward
-            if (real) fprintf(stderr, "Invalid move: Pawn cannot capture by moving directly forward\n");
-            return false;
-        } 
-        // pawn is moving forward exactly 1 or 2 spaces with 
-        // nothing in the way, and is not trying to capture 
-        // anything. This is a valid move
-    }
-    
-    if (abs(dx) == 1) {
-        // pawn must capture correctly (to reach this point abs(dy) will equal 1)
-        if (getPiece(move.endPos) == EM) {
-            // player must attempt en passant
-            Board::Pos enPassantPlace;
-            enPassantPlace.x = move.endPos.x;
-            enPassantPlace.y = move.startPos.y;
+   // This piece's king is in check
 
-            bool validEnPassant;
-            Board::Move lastMove;
-            if (moves_.size() == 0) {
-                validEnPassant = false;
-            } else {
-                lastMove = moves_.back();
-                validEnPassant = true;
-            }
+   std::set<Move> check_restrictions;
 
-            if (validEnPassant) {
-            if (abs(lastMove.startPos.y - lastMove.endPos.y) != 2) {
-                // if the previous move was not a dy of 2
-                if (real) fprintf(stderr, "Invalid move: previous move was not a move forward of size 2\n");
-                validEnPassant = false;
-            }
-            if ((lastMove.endPos.x != enPassantPlace.x) || (lastMove.endPos.y != enPassantPlace.y)) {
-                // if the previous move did not land on place of en passant capture
-                if (real) fprintf(stderr, "Invalid move: last move did not land on place of en passant capture\n");
-                validEnPassant = false;
-            }
+   // add checking squares
+   Square checking_square = m_check_locations.at(0);
+   const Piece& checking_piece = getPiece(checking_square).value();
+   switch(checking_piece.type)
+   {
+      case ROOK:
+      case BISHOP:
+      case QUEEN:
+         break;
+      case PAWN:
+      case KNIGHT:
+      {
+         // This piece is a pawn or a knight so its only option is to capture the attacking piece
+         Move kill_attacker{start, checking_square};
+         if (pin_restrictions.size() == 0 || pin_restrictions.find(kill_attacker) != pin_restrictions.end())
+            check_restrictions.insert(kill_attacker);
+         return check_restrictions;
+      }
+      default:
+         return check_restrictions;
+   }
 
-            if (move.piece == WP) {
-                if (getPiece(enPassantPlace) != BP) {
-                    // if the taken piece is not pawn of opposite colour
-                    if (real) fprintf(stderr, "Invalid move: En passant piece is not pawn of opposite colour\n");
-                    validEnPassant = false;
-                }
-                if (lastMove.piece != BP) {
-                    // if the previous move was not opposite colour pawn moving
-                    if (real) fprintf(stderr, "Invalid move: Previous move was not opposite colour pawn moving\n");
-                    validEnPassant = false;
-                }
-            } else if (move.piece == BP) {
-                if (getPiece(enPassantPlace) != BP) {
-                    // if the taken piece is not pawn of opposite colour
-                    if (real) fprintf(stderr, "Invalid move: En passant piece is not pawn of opposite colour\n");
-                    validEnPassant = false;
-                }
-                if (lastMove.piece != BP) {
-                    // if the previous move was not opposite colour pawn moving
-                    if (real) fprintf(stderr, "Invalid move: Previous move was not opposite colour pawn moving\n");
-                    validEnPassant = false;
-                }
-            }
-            }
-            if (!validEnPassant) {
-                if (real) fprintf(stderr, "Invalid move: Pawn cannot move like that\n");
-                return false;
-            }
-            // all checks passed, move was a valid en passant
-        } else {
-            // capture is not an en passant
-            if (getPiece(move.endPos) != move.taken) {
-                // piece attempting to be captured is not in the right position
-                if (real) fprintf(stderr, "Invalid move: Pawn attempted capture but piece was not in position\n");
-                return false;
-            }
-            // pawn is moving diagonally exactly 1 space, and is moving to capture
-            // the correct piece. This is a valid capture
-        }
-    }
-
-    // pawn moved correctly
-    return true;
+   std::set<Square> check_line = getSquaresOnLine(checking_square, (piece.color == WHITE ? m_white_king : m_black_king));
+   for (auto check_square : check_line) 
+   {
+      Move block_check{start, check_square};
+      if (pin_restrictions.size() == 0 || pin_restrictions.find(block_check) != pin_restrictions.end())
+         check_restrictions.insert(block_check);
+   }
+   return check_restrictions;
 }
 
-void Board::setPiece (Board::Pos pos, Board::Piece piece) {
-    state_ [pos.x - 1][pos.y - 1] = piece;
+void Board::reset()
+{
+   std::vector<PieceType> piece_types {
+      ROOK,
+      KNIGHT,
+      BISHOP,
+      QUEEN,
+      KING,
+      BISHOP,
+      KNIGHT,
+      ROOK
+   };
+
+   for (int row = 0; row < 8; row++)
+   {
+      for (int col = 0; col < 8; col++)
+      {
+         OptionalPiece& p = getPiece({.row = row, .col = col});
+         switch(row)
+         {
+            case 0:  p = Piece{piece_types.at(col), WHITE}; break;
+            case 1:  p = Piece{PAWN, WHITE}; break;
+            case 6:  p = Piece{PAWN, BLACK}; break;
+            case 7:  p = Piece{piece_types.at(col), BLACK}; break;
+            default: p.reset();
+         }
+      }
+   }
+
+   m_current_player = WHITE;
+   m_black_kingside_available = true;
+   m_black_queenside_available = true;
+   m_white_kingside_available = true;
+   m_white_queenside_available = true;
+   m_en_passant_square.reset();
+   m_halfmoves = 0;
+   m_fullmoves = 1;
+
+   m_white_king = { .row = 0, .col = 4 };
+   m_black_king = { .row = 7, .col = 4 };
+
+   m_pinned_white_pieces.clear();
+   m_pinned_black_pieces.clear();
+
+   m_threatened_black_squares.clear();
+   m_threatened_white_squares.clear();
+   m_check_locations.clear();
+
+   rebuildThreatsAndChecks();
 }
 
-void Board::switchPlayer () {
-    if (turn_ == WHITE) {
-        turn_ = BLACK;
-    } else {
-        turn_ = WHITE;
-    }
+
+void Board::rebuildPins(Color color)
+{
+   std::map<Square, Square>& pinned_pieces = (color == WHITE ? m_pinned_white_pieces : m_pinned_black_pieces);
+
+   pinned_pieces.clear();
+   for (int row = 0; row < 8; row++)
+   {
+      for (int col = 0; col < 8; col++)
+      {
+         Square pinning {row, col};
+         const OptionalPiece& p = getPiece(pinning);
+         if (not p.has_value()) continue; // no piece on this square
+         if (p.value().color == color) continue; // this piece is the same color as the king
+
+         std::optional<Square> pinned_piece = pinnedPiece(pinning);
+         if (pinned_piece.has_value())
+         {
+            pinned_pieces[pinned_piece.value()] = pinning;
+         }
+      }
+   }
 }
 
-void Board::undoMove () {
-    if (moves_.size() == 0) {
-        // no moves to undo
-        return;
-    }
-    Board::unhashBoard();
-    state_ = states_.back();
-    moves_.pop_back();
-    states_.pop_back();
-    Board::switchPlayer();
+
+std::optional<Square> Board::pinnedPiece(const Square& attacking_pos) const
+{
+   const Piece& p = getPiece(attacking_pos).value();
+   Color king_color = (p.color == WHITE ? BLACK : WHITE );
+   const Square& king_pos = (king_color == WHITE ? m_white_king: m_black_king);
+   int dx = king_pos.col - attacking_pos.col;
+   int dy = king_pos.row - attacking_pos.row;
+   auto rowCheck  = [](int dx, int dy) -> bool { return dx == 0 || dy == 0; };
+   auto diagCheck = [](int dx, int dy) -> bool { return dx*dx == dy*dy; }; // abs(dx) == abs(dy) with less writing
+   switch (p.type)
+   {
+      case BISHOP:
+         if (not diagCheck(dx, dy)) return {};
+         break;
+      case ROOK:
+         if (not rowCheck(dx, dy)) return {};
+         break;
+      case QUEEN:
+         if (not (rowCheck(dx, dy) || diagCheck(dx, dy))) return {};
+         break;
+      default: return {};
+   }
+
+   // the piece can move in a way to attack the king, check there is exactly 1
+   // piece in the way
+
+   bool blocked = false;
+   dx = std::clamp(dx, -1, 1);
+   dy = std::clamp(dy, -1, 1);
+   Square pos = {.row = attacking_pos.row + dy, .col = attacking_pos.col + dx};
+   std::optional<Square> pinnedPos;
+   while (pos != king_pos)
+   {
+      const OptionalPiece& p = getPiece(pos);
+      if (p.has_value()) 
+      {
+         if (blocked) return {}; // there's already another piece blocking, this can't be a pin
+         blocked = true;
+         pinnedPos = pos;
+      }
+      pos.col += dx;
+      pos.row += dy;
+   }
+   return pinnedPos;
 }
 
-void Board::getState(Board::Piece state [16][16]) {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            Board::Pos pos = {.x = i + 1, .y = j + 1};
-            state[i][j] = getPiece(pos);
-        }
-    }
+void Board::rebuildThreatsAndChecks()
+{
+   m_threatened_white_squares.clear();
+   m_threatened_black_squares.clear();
+   m_check_locations.clear();
+
+   for (int row = 0; row < 8; row++)
+   {
+      for (int col = 0; col < 8; col++)
+      {
+         Square square {.row = row, .col = col};   // origin square of attacking piece
+         OptionalPiece& p = getPiece(square);
+         if (not p.has_value()) continue;          // square has no pieces on it
+         std::set<Square> new_threatened_squares = threatenedSquares(square);    // the squares this piece is threatening
+         Color p_color = p.value().color;
+         std::set<Square>& threatened_squares(p_color == WHITE ? m_threatened_black_squares : m_threatened_white_squares);
+         threatened_squares.insert(new_threatened_squares.begin(), new_threatened_squares.end());
+         if (p_color != m_current_player and new_threatened_squares.contains((m_current_player == WHITE ? m_white_king : m_black_king)))
+         {
+            m_check_locations.push_back(square);
+         }
+      }
+   }
 }
 
-void Board::getLegalMoves (Board::Player player, std::vector <Board::Move>* moves) {
-    typedef struct PiecePos {
-        Board::Piece piece;
-        Board::Pos pos;
-    } PiecePos;
-    std::vector <PiecePos> piecePos;
 
-    for (int i = 1; i < 9; i++) {
-        for (int j = 1; j < 9; j++) {
-            Board::Pos pos = {.x = i, .y = j};
-            Piece p = getPiece(pos);
-            if ((player == WHITE && p >= WK && p <= WP) || (player == BLACK && p >= BK && p <= BP)){
-                PiecePos x = {.piece = p, .pos = pos};
-                piecePos.push_back(x);
-            }
-        }
-    }
+std::set<Square> Board::threatenedSquares(const Square& attacking) const
+{
+   std::set<Square> threats;
+   const Piece& piece = getPiece(attacking).value();
+   const Square& opposite_king = (piece.color == WHITE ? m_black_king : m_white_king);
 
-    // check every possible move for each piece and add only moves that satisfy isLegalMove()
-    for (PiecePos pp : piecePos) {
-        if (pp.piece == WK || pp.piece == BK) {
-            // piece is a king
-            int pos_x[] = {-1,0,1,1,1,0,-1,-1, -2, 2};
-            int pos_y[] = {1,1,1,0,-1,-1,-1,0, 0, 0};
-            for (int i = 0; i < 10; i++) {
-                Board::Pos pos = {.x = pp.pos.x + pos_x[i], .y = pp.pos.y + pos_y[i]};
-                if (isInsideBoard(pos)) {
-                    Board::Piece take = getPiece(pos);
-                    Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
-                    if (isLegalMove(move, false)) {
-                        moves->push_back(move);
-                    }
-                }
-            }
-        }
-        if (pp.piece == WQ || pp.piece == BQ) {
-            // piece is a queen
-            for (int i = 1; i < 8; i++) {
-                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos, pp.pos}; // 8 directions of movement
-                pos[0].x += i;
-                pos[1].x -= i;
-                pos[2].y += i;
-                pos[3].y -= i;
-                pos[4].x += i; pos[4].y -= i;
-                pos[5].x -= i; pos[5].y -= i;
-                pos[6].x += i; pos[6].y += i;
-                pos[7].x -= i; pos[7].y += i;
-                for (int j = 0; j < 8; j++) {
-                    // for each direction of movement
-                    if (isInsideBoard(pos[j])) {
-                        Board::Piece take = getPiece(pos[j]);
-                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move, false)) {
-                            moves->push_back(move);
-                        }
-                    }
-                }
-            }
-        }
-        if (pp.piece == WB || pp.piece == BB) {
-            // piece is a bishop
-            for (int i = 1; i < 8; i++) {
-                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos}; // 4 directions of movement
-                pos[0].x += i; pos[0].y -= i;
-                pos[1].x -= i; pos[1].y -= i;
-                pos[2].x += i; pos[2].y += i;
-                pos[3].x -= i; pos[3].y += i;
-                for (int j = 0; j < 4; j++) {
-                    // for each direction of movement
-                    if (isInsideBoard(pos[j])) {
-                        Board::Piece take = getPiece(pos[j]);
-                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move, false)) {
-                            moves->push_back(move);
-                        }
-                    }
-                }
-            }
-        }
-        if (pp.piece == WN || pp.piece == BN) {
-            // piece is a knight
-            int pos_x[] = {-2,-1,1,2,2,1,-1,-2};
-            int pos_y[] = {1,2,2,1,-1,-2,-2,-1};
-            for (int i = 0; i < 8; i++) {
-                Board::Pos pos = {.x = pp.pos.x + pos_x[i], .y = pp.pos.y + pos_y[i]};
-                if (isInsideBoard(pos)) {
-                    Board::Piece take = getPiece(pos);
-                    Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos, .taken = take};
-                    if (isLegalMove(move, false)) {
-                        moves->push_back(move);
-                    }
-                }
-            }
-        }
-        if (pp.piece == WR || pp.piece == BR) {
-            // piece is a rook
-            for (int i = 1; i < 8; i++) {
-                Board::Pos pos[] = {pp.pos, pp.pos, pp.pos, pp.pos}; // 4 directions of movement
-                pos[0].x += i;
-                pos[1].x -= i;
-                pos[2].y += i;
-                pos[3].y -= i;
-                for (int j = 0; j < 4; j++) {
-                    // for each direction of movement
-                    if (isInsideBoard(pos[j])) {
-                        Board::Piece take = getPiece(pos[j]);
-                        Board::Move move = {.piece = pp.piece, .startPos = pp.pos, .endPos = pos[j], .taken = take};
-                        if (isLegalMove(move, false)) {
-                            moves->push_back(move);
-                        }
-                    }
-                }
-            }
-        }
-        if (pp.piece == WP || pp.piece == BP) {
-            // piece is a pawn
-            Board::Move move;
-            move.piece = pp.piece;
-            move.startPos = pp.pos;
+   if (piece.type == PAWN)
+   {
+      int dy = piece.color == WHITE ? 1 : -1;
+      Square threat = attacking;
+      threat.row += dy;
+      threat.col += 1;
+      if (squareIsOnBoard(threat)) threats.insert(threat);
+      threat.col -= 2;
+      if (squareIsOnBoard(threat)) threats.insert(threat);
+      return threats;
+   }
 
-            Board::Pos pos = pp.pos;
-            if (pp.piece == WP) {
-                pos.y += 1;
-            } else {
-                pos.y -= 1;
-            }
-            Board::Piece take;
-            if (isInsideBoard(pos)) {
-                take = getPiece(pos);
-                move.endPos = pos;
-                move.taken = take;
-                if (isLegalMove(move, false)) {
-                    moves->push_back(move);
-                }
-            }
-            if (pp.piece == WP) {
-                pos.y += 1;
-            } else {
-                pos.y -= 1;
-            }
-            if (isInsideBoard(pos)) {
-                take = getPiece(pos);
-                move.endPos = pos;
-                move.taken = take;
-                if (isLegalMove(move, false)) {
-                    moves->push_back(move);
-                }
-            }
-            if (pp.piece == WP) {
-                pos.y -= 1;
-            } else {
-                pos.y += 1;
-            }
-            pos.x += 1;
-            if (isInsideBoard(pos)) {
-                take = getPiece(pos);
-                move.endPos = pos;
-                if (take == EM) {
-                    if (pp.piece == WP) {
-                        take = BP;
-                    } else {
-                        take = WP;
-                    }
-                }
-                if (isLegalMove(move, false)) {
-                    moves->push_back(move);
-                }
-            }
-            pos.x -= 2;
-            if (isInsideBoard(pos)) {
-                take = getPiece(pos);
-                move.endPos = pos;
-                if (take == EM) {
-                    if (pp.piece == WP) {
-                        take = BP;
-                    } else {
-                        take = WP;
-                    }
-                }
-                if (isLegalMove(move, false)) {
-                    moves->push_back(move);
-                }
-            }
-        }
-    }
+   if (piece.type == KNIGHT)
+   {
+      for (Direction dir : knightDirs())
+      {
+         auto [north, east] = getDirectionOffset(dir);
+         Square threat = {.row = attacking.row + north, .col = attacking.col + east};
+         if (squareIsOnBoard(threat)) threats.insert(threat);
+      }
+      return threats;
+   }
+
+   if (piece.type == KING)
+   {
+      for (Direction dir : queenDirs())
+      {
+         auto [north, east] = getDirectionOffset(dir);
+         Square threat = {.row = attacking.row + north, .col = attacking.col + east};
+         if (squareIsOnBoard(threat)) threats.insert(threat);
+      }
+      return threats;
+   }
+
+   for (Direction dir : queenDirs())
+   {
+      if (piece.type == ROOK && (dir == NE || dir == SE || dir == SW || dir == NW)) continue;
+      if (piece.type == BISHOP && (dir == N || dir == E || dir == S || dir == W)) continue;
+
+      auto [north, east] = getDirectionOffset(dir);
+      Square threat = {.row = attacking.row + north, .col = attacking.col + east};
+      while (squareIsOnBoard(threat))
+      {
+         threats.insert(threat);
+         if (getPiece(threat).has_value())
+         {
+            // threats continue through kings, ie. they can't move back
+            // to escape a threat, they need to move out of the line of sight
+            if (threat != opposite_king) break;
+         }
+         threat.row += north;
+         threat.col += east;
+      } 
+   }
+   return threats;
+}
+
+bool Board::squareIsOnBoard(const Square& square)
+{
+   return (0 <= square.row && square.row < 8) &&
+          (0 <= square.col && square.col < 8);
+}
+
+std::set<Move> Board::restrictedSubset(const std::set<Move>& moves, const std::optional<std::set<Move>>& restrictions)
+{
+
+   if (not restrictions.has_value()) return moves;
+   std::set<Move> restricted_subset;
+   
+   for (const Move& move : moves)
+   {
+      if (std::any_of(restrictions.value().begin(), restrictions.value().end(), 
+         [&move](const Move& restriction) -> bool {
+            return move.start == restriction.start && move.end == restriction.end;
+         }))
+      {
+         restricted_subset.insert(move);
+      }
+   }
+
+   return restricted_subset;
+}
+
+std::set<Square> Board::getSquaresOnLine(const Square& start, const Square& end)
+{
+   std::set<Square> squares;
+   int dy = std::clamp(end.row - start.row, -1, 1);
+   int dx = std::clamp(end.col - start.col, -1, 1);
+
+   Square square = start;
+   while (square != end)
+   {
+      squares.insert(square);
+      square.row += dy;
+      square.col += dx;
+   } 
+   
+   return squares;
 }

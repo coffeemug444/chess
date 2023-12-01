@@ -1,0 +1,19 @@
+what is the definition of a legal move?
+
+
+1. Pieces can only move in their own directions (ie. bishops move diagonally, rooks move on the ranks and files, etc.)
+2. Pieces cannot capture pieces of their own colour
+3. Pieces (except knights) cannot move through other pieces
+4. Castling cannot occur if the king or that rook has been moved before
+5. Castling cannot occur if the king would move through a threatened square
+6. Castling cannot occur if the king is in check
+7. Pawns can only advance twice if they haven't moved before
+8. Pawns can capture en passant only on the move after a double advance
+9. After you make the move your king may not be in check (even if you checkmate their king)
+10. If 50 half-moves occur without a capture or pawn advance the game ends in stalemate
+11. If neither player has sufficient pieces to checkmate the opponent the game ends in stalemate
+12. If the same position occurs three times with the same player to move the game ends in stalemate
+13. Pawns can promote only on the last rank
+14. If no legal move can be made the game ends in stalemate
+15. If no legal move can be made and the king is in check the game ends in checkmate
+16. If it is your turn you must move one of your pieces (the board cannot be in the same state before and after your move)
