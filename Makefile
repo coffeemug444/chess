@@ -9,7 +9,7 @@ BINDIR=bin
 
 CLASSES = board piece
 DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES))
-OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES)) $(ODIR)/main.o
+OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES) main)
 
 $(ODIR)/%.o: $(SRCDIR)/%.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(STD) $(CFLAGS)
