@@ -16,8 +16,6 @@ extern cl::Kernel multiple_sum_kernel;
 extern cl::Kernel transpose_kernel;
 extern cl::Kernel div_float_kernel;
 extern cl::Kernel mul_float_kernel;
-extern cl::Kernel add_float_kernel;
-extern cl::Kernel sub_float_kernel;
 extern cl::Kernel div_float_eq_kernel;
 extern cl::Kernel mul_float_eq_kernel;
 extern cl::Kernel add_float_eq_kernel;

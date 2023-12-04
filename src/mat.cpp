@@ -299,8 +299,6 @@ Mat Mat::float_op(char op, float val) const
    cl::Kernel kernel;
    switch (op)
    {
-      case '+': kernel = add_float_kernel; break;
-      case '-': kernel = sub_float_kernel; break;
       case '*': kernel = mul_float_kernel; break;
       case '/': kernel = div_float_kernel; break;
       default: throw new std::exception();

@@ -1,5 +1,4 @@
-#ifndef MAT
-#define MAT
+#pragma once
 
 #include <vector>
 #include <assert.h>
@@ -82,6 +81,3 @@ public:
    friend ParallelMat;
 };
 
-
-
-#endif
