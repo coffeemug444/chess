@@ -19,6 +19,11 @@ public:
 
    ParallelMat relu() const;
    ParallelMat relu_inv() const;
+
+   unsigned getWidth() const { return m_width; }
+   unsigned getHeight() const { return m_height; }
+   unsigned getCount() const { return m_count; }
+
 private:
    ParallelMat(cl::Buffer& buffer, unsigned height, unsigned width, unsigned count)
       :m_buffer{buffer}

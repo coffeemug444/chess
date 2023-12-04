@@ -39,6 +39,7 @@ public:
 
    ParallelMat operator* (const ParallelMat &other) const;
    ParallelMat operator+ (const ParallelMat &other) const;
+   ParallelMat operator^ (const ParallelMat &other) const;
 
    Mat operator* (const Mat &other) const;
    Mat operator+ (const Mat &other) const { return mat_add_sub_dot_op('+', other); };

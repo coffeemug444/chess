@@ -7,6 +7,7 @@
 #include <ctime>
 #include <fstream>
 #include <assert.h>
+#include <iostream>
 
 using std::shared_ptr, std::vector, std::make_shared, std::make_unique, std::setw, std::setprecision, std::ofstream, std::ifstream;
 
@@ -41,6 +42,33 @@ NNet::NNet(vector<int> layer_sizes, char mode)
       case 'h':
          m_weights.push_back(Mat::he(layer_sizes[i], layer_sizes[i - 1]));
       }
+   }
+
+   std::cout << "Created nn with weights:\n";
+   for (const auto& w_mat : m_weights)
+   {
+      std::cout << "{";
+      std::string delim = "";
+      auto vals = w_mat.getVals();
+      for (const auto& v : vals)
+      {
+         std::cout << delim << v;
+         delim = ", ";
+      }
+      std::cout << "}\n";
+   }
+   std::cout << "biases:\n";
+   for (const auto& b_mat : m_biases)
+   {
+      std::cout << "{";
+      std::string delim = "";
+      auto vals = b_mat.getVals();
+      for (const auto& v : vals)
+      {
+         std::cout << delim << v;
+         delim = ", ";
+      }
+      std::cout << "}\n";
    }
 }
 
@@ -174,8 +202,8 @@ ParallelMat NNet::multipleCompute(const ParallelMat& batch) const {
 
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto wa_l = m_weights[i] * a_l;
-      auto zl = m_biases[i] + wa_l;
+      auto weight_x_activation = m_weights[i] * a_l;
+      auto zl = m_biases[i] + weight_x_activation;
       a_l = zl.relu();
    }
    return a_l;
@@ -195,12 +223,12 @@ Mat NNet::compute(const Mat &input) const
 
 // returns a vector of gradients for each weight based on
 // computed diffs from backpropagate
-vector<Mat> NNet::computeWeights(vector<Mat> &diffs, vector<Mat>& as) const
+vector<Mat> NNet::computeWeightGradients(vector<Mat> &diffs, vector<Mat>& activations) const
 {
    auto new_weights = vector<Mat>();
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      Mat new_weight = diffs[i] * as[i].transpose();
+      Mat new_weight = diffs[i] * activations[i].transpose();
       new_weights.push_back(new_weight);
    }
    return new_weights;
@@ -208,7 +236,7 @@ vector<Mat> NNet::computeWeights(vector<Mat> &diffs, vector<Mat>& as) const
 
 // returns a vector of gradients for each bias based on
 // computed diffs from backpropagate
-vector<Mat> NNet::computeBiases(vector<Mat> &diffs) const
+vector<Mat> NNet::computeBiaseGradients(vector<Mat> &diffs) const
 {
    auto new_biases = vector<Mat>();
    for (unsigned i = 0; i < m_biases.size(); i++)
@@ -218,26 +246,31 @@ vector<Mat> NNet::computeBiases(vector<Mat> &diffs) const
    return new_biases;
 }
 
-void NNet::adjustWeightsAndBiases(vector<Mat> &weight_grad, vector<Mat> &bias_grad, float learning_rate, unsigned iterations)
+void NNet::adjustWeightsAndBiases(const vector<Mat> &weight_grad, const vector<Mat> &bias_grad, float learning_rate)
 {
-   float d = learning_rate / iterations;
    for (unsigned i = 0; i < weight_grad.size(); i++)
    {
-      m_weights[i] = m_weights[i] - d * weight_grad[i];
-      m_biases[i] = m_biases[i] - d * bias_grad[i];
+      m_weights[i] = m_weights[i] - learning_rate * weight_grad[i];
+      m_biases[i] = m_biases[i] - learning_rate * bias_grad[i];
    }
 }
 
-void NNet::forwardPass(const Mat& input, vector<Mat>& zs, vector<Mat>& as) const
+std::pair<vector<Mat>, vector<Mat>> NNet::forwardPass(const Mat& input) const
 {
-   as.push_back(input);
+   vector<Mat> layer_outputs, activations;
+   layer_outputs.reserve(m_weights.size());
+   activations.reserve(m_weights.size());
+
+   activations.push_back(input);
 
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto zl = m_weights[i] * as[i] + m_biases[i];
-      zs.push_back(zl);
-      as.push_back(zl.relu());
+      auto zl = m_weights[i] * activations[i] + m_biases[i];
+      layer_outputs.push_back(zl);
+      activations.push_back(zl.relu());
    }
+
+   return {layer_outputs, activations};
 }
 
 
@@ -247,50 +280,64 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
 {
    assert(inputs.size() == desired_outputs.size());
 
+   float input_size_inv = 1.f / inputs.size();
+
    std::vector<Mat> weight_grads;
    weight_grads.reserve(m_weights.size());
    std::vector<Mat> bias_grads;
    bias_grads.reserve(m_biases.size());
 
-   vector<ParallelMat> as;
-   vector<ParallelMat> zs;
+   vector<ParallelMat> activations;
+   vector<ParallelMat> layer_outputs;
    vector<ParallelMat> diffs;
    auto inputs_dup = ParallelMat{inputs};
    auto desired_outputs_dup = ParallelMat{desired_outputs};
 
-   as.push_back(inputs_dup);
+   activations.push_back(inputs_dup);
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto wa_l = m_weights[i] * as[i];
-      auto zl = m_biases[i] + wa_l;
-      zs.push_back(zl);
-      as.push_back(zl.relu());
+      auto weight_x_activation = m_weights[i] * activations[i];
+      auto layer_output = m_biases[i] + weight_x_activation;
+      layer_outputs.push_back(layer_output);
+      activations.push_back(layer_output.relu());
    }
 
-   auto DaC = as.back() - desired_outputs_dup;
+   auto cost_derivative = activations.back() - desired_outputs_dup;
 
-   ParallelMat final_z_relu_inv = zs.back().relu_inv();
-   ParallelMat diff_end = DaC ^ final_z_relu_inv;
+   std::cout << "Backpropogating!\n";
+
+   ParallelMat final_z_relu_inv = layer_outputs.back().relu_inv();
+
+   std::cout << "cost_derivative: [" << cost_derivative.getHeight() << ", " << cost_derivative.getWidth() << "] x" << cost_derivative.getCount() << '\n';
+   std::cout << "final_z_relu_inv: [" << final_z_relu_inv.getHeight() << ", " << final_z_relu_inv.getWidth() << "] x" << final_z_relu_inv.getCount() << '\n';
+
+   ParallelMat diff_end = cost_derivative ^ final_z_relu_inv;
+   std::cout << "diff_end: [" << diff_end.getHeight() << ", " << diff_end.getWidth() << "] x" << diff_end.getCount() << '\n';
+
    diffs.push_back(diff_end);
 
-   unsigned num_layers = m_layer_sizes.size() - 1;
+   unsigned num_layers = m_weights.size();
 
    for (unsigned i = num_layers - 1; i >= 1; i--)
    {
-      ParallelMat t_weights_x_diff_next = m_weights[i].transpose() * diffs[0];
-      ParallelMat diff_0 = t_weights_x_diff_next ^ zs[i - 1].relu_inv();
+      auto& w_i = m_weights[i];
+      auto w_t = w_i.transpose();
+      auto& diff = diffs[0];
+      std::cout << "m_weights[i]: [" << w_i.getHeight() << ", " << w_i.getWidth() << "]\n";
+      ParallelMat t_weights_x_diff_next = w_i.transpose() ^ diffs[0];
+      std::cout << "t_weights_x_diff_next: [" << t_weights_x_diff_next.getHeight() << ", " << t_weights_x_diff_next.getWidth() << "] x" << t_weights_x_diff_next.getCount() << '\n';
+      ParallelMat diff_0 = t_weights_x_diff_next * layer_outputs[i - 1].relu_inv();
       diffs.insert(diffs.begin(), diff_0);
    }
 
-
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      ParallelMat asit = as[i].transpose();
-      ParallelMat new_weight_dup = diffs[i] * asit;
-      Mat new_weight = new_weight_dup.sum();
-      weight_grads.push_back(new_weight);
-      bias_grads.push_back(diffs[i].sum());
+      ParallelMat weight_grad = diffs[i] * activations[i].transpose();
+      weight_grads.push_back(input_size_inv * weight_grad.sum());
+      bias_grads.push_back(input_size_inv * diffs[i].sum());
    }
+
+   return {weight_grads, bias_grads};
 }
 
 // returns a vector of diffs that can be passed into
@@ -304,14 +351,12 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    std::vector<Mat> bias_grads;
    bias_grads.reserve(m_biases.size());
 
-   vector<Mat> zs;
-   vector<Mat> as;
    vector<Mat> diffs;
-   forwardPass(input, zs, as);
-   auto DaC = as.back() - desired_output;
+   auto [layer_outputs, activations] = forwardPass(input);
+   auto cost_derivative = activations.back() - desired_output;
 
-   Mat final_z_relu_inv = zs.back().relu_inv();
-   Mat diff_end = DaC ^ final_z_relu_inv;
+   Mat final_z_relu_inv = layer_outputs.back().relu_inv();
+   Mat diff_end = cost_derivative * final_z_relu_inv;
    diffs.push_back(diff_end);
 
    int num_layers = m_layer_sizes.size() - 1; // has extra input layer we don't care about
@@ -319,17 +364,19 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    for (unsigned i = num_layers - 1; i >= 1; i--)
    {
       Mat t_weights_x_diff_next = m_weights[i].transpose() * diffs[0];
-      Mat diff_0 = t_weights_x_diff_next ^ zs[i - 1].relu_inv();
+      Mat diff_0 = t_weights_x_diff_next ^ layer_outputs[i - 1].relu_inv();
       diffs.insert(diffs.begin(), diff_0);
    }
 
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      Mat asit = as[i].transpose();
-      Mat new_weight = diffs[i] * asit;
+      Mat activation_transpose = activations[i].transpose();
+      Mat new_weight = diffs[i] * activation_transpose;
       weight_grads.push_back(new_weight);
       bias_grads.push_back(diffs[i]);
    }
+
+   return {weight_grads, bias_grads};
 }
 
 float NNet::sigmoid_act(float x)

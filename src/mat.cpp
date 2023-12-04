@@ -440,6 +440,28 @@ ParallelMat Mat::operator+ (const ParallelMat &other) const
    return ParallelMat(out_buffer, m_height, m_width, other.m_count);
 }
 
+ParallelMat Mat::operator^ (const ParallelMat &other) const
+{
+   assert(m_width == other.m_width && m_height == other.m_height);
+
+   const int N_ELEMENTS = m_width * m_height * other.m_count;
+   const int B_size = m_width * m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+   cl_int bufferB_size=B_size;
+   cl::NDRange global( N_ELEMENTS );
+   try {
+      multiple_dot_kernel.setArg( 0, m_buffer );
+      multiple_dot_kernel.setArg( 1, other.m_buffer);
+      multiple_dot_kernel.setArg( 2, out_buffer );
+      multiple_dot_kernel.setArg( 3, sizeof(cl_int), &bufferB_size );
+      ocl_queue.enqueueNDRangeKernel( multiple_dot_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in multipleAdd: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(out_buffer, m_height, m_width, other.m_count);
+}
+
 Mat Mat::transpose() const
 {
    const int N_ELEMENTS = m_width * m_height;

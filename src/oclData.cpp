@@ -10,6 +10,7 @@ cl::Kernel matmul_kernel;
 cl::Kernel multiple_multi_matmul_kernel;
 cl::Kernel multiple_matmul_kernel;
 cl::Kernel multiple_add_kernel;
+cl::Kernel multiple_dot_kernel;
 cl::Kernel multiple_transpose_kernel;
 cl::Kernel multiple_sum_kernel;
 cl::Kernel transpose_kernel;
@@ -44,6 +45,7 @@ void ocl_init()
       "kernels/matmul.cl",
       "kernels/multiple_matmul.cl",
       "kernels/multiple_add.cl",
+      "kernels/multiple_dot.cl",
       "kernels/multiple_sum.cl",
       "kernels/multiple_transpose.cl",
       "kernels/multiple_multi_matmul.cl",
@@ -76,6 +78,7 @@ void ocl_init()
    multiple_multi_matmul_kernel     = cl::Kernel(program, "multiple_multi_matmul");
    multiple_matmul_kernel           = cl::Kernel(program, "multiple_matmul");
    multiple_add_kernel              = cl::Kernel(program, "multiple_add");
+   multiple_dot_kernel              = cl::Kernel(program, "multiple_dot");
    multiple_transpose_kernel        = cl::Kernel(program, "multiple_transpose");
    multiple_sum_kernel              = cl::Kernel(program, "multiple_sum");
    transpose_kernel                 = cl::Kernel(program, "transpose");

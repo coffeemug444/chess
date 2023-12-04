@@ -10,6 +10,7 @@ extern cl::CommandQueue ocl_queue;
 extern cl::Kernel matmul_kernel;
 extern cl::Kernel multiple_multi_matmul_kernel;
 extern cl::Kernel multiple_matmul_kernel;
+extern cl::Kernel multiple_dot_kernel;
 extern cl::Kernel multiple_add_kernel;
 extern cl::Kernel multiple_transpose_kernel;
 extern cl::Kernel multiple_sum_kernel;

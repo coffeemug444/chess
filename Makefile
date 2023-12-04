@@ -12,7 +12,7 @@ DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES))
 OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES) main)
 
 $(ODIR)/%.o: $(SRCDIR)/%.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(STD) $(CFLAGS)
+	$(CC) -c -g -o $@ $< $(STD) $(CFLAGS)
 	
 main: $(OBJ)
 	$(CC) -g -o $(BINDIR)/$@ $^ $(STD) $(CFLAGS) $(LIBS)
