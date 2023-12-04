@@ -43,33 +43,6 @@ NNet::NNet(vector<int> layer_sizes, char mode)
          m_weights.push_back(Mat::he(layer_sizes[i], layer_sizes[i - 1]));
       }
    }
-
-   std::cout << "Created nn with weights:\n";
-   for (const auto& w_mat : m_weights)
-   {
-      std::cout << "{";
-      std::string delim = "";
-      auto vals = w_mat.getVals();
-      for (const auto& v : vals)
-      {
-         std::cout << delim << v;
-         delim = ", ";
-      }
-      std::cout << "}\n";
-   }
-   std::cout << "biases:\n";
-   for (const auto& b_mat : m_biases)
-   {
-      std::cout << "{";
-      std::string delim = "";
-      auto vals = b_mat.getVals();
-      for (const auto& v : vals)
-      {
-         std::cout << delim << v;
-         delim = ", ";
-      }
-      std::cout << "}\n";
-   }
 }
 
 vector<Mat> NNet::weightsZero()
@@ -391,13 +364,13 @@ float NNet::reLU_inv(float x)
 float NNet::leaky_reLU_act(float x)
 {
    if (x < 0)
-      return 0.1 * x;
+      return 0.01 * x;
    return x;
 }
 
 float NNet::leaky_reLU_inv(float x)
 {
    if (x < 0)
-      return 0.1;
+      return 0.01;
    return 1;
 }

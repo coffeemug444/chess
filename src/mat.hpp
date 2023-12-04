@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <assert.h>
+#include <ostream>
 #include <random>
 #define CL_HPP_ENABLE_EXCEPTIONS
 #define CL_HPP_TARGET_OPENCL_VERSION 300
@@ -11,6 +12,7 @@ class ParallelMat;
 class Mat;
 
 Mat operator* (float f, const Mat& mat);
+std::ostream& operator<<(std::ostream& out, const Mat& mat);
 
 class Mat {
 private:

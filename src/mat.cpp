@@ -25,6 +25,34 @@ std::mt19937 Mat::gen = std::mt19937(rd());
 
 Mat operator* (float f, const Mat& mat) { return mat.float_op('*', f); }
 
+
+std::ostream& operator<<(std::ostream& out, const Mat& mat)
+{
+   int h = mat.getHeight();
+   int w = mat.getWidth();
+   auto vals = mat.getVals();
+
+   std::string row_delim = "[";
+   for (int row = 0; row < h; row++)
+   {
+      out << row_delim << "[";
+      row_delim = ",\n ";
+
+      std::string delim = "";
+      for (int col = 0; col < w; col++)
+      {
+         out << delim << vals[row*w + col];
+         delim = ",";
+      }
+
+      out << "]";
+   }
+   out << "]";
+   
+   return out;
+}
+
+
 void Mat::setup() {
    if (ocl_setup) return;
    ocl_init();
