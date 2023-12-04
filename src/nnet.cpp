@@ -1,4 +1,4 @@
-#include "benBrain.hpp"
+#include "nnet.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -10,14 +10,14 @@
 
 using std::shared_ptr, std::vector, std::make_shared, std::make_unique, std::setw, std::setprecision, std::ofstream, std::ifstream;
 
-BenBrain::BenBrain(){};
+NNet::NNet(){};
 
 // layer_sizes defines the number of outputs for each layer.
 // An extra layer is added to the beginning notating the number
 // of inputs into the net (layer_sizes' length is 1 greater than
 // the number of layers in the net)
 // mode is '1' for ones, '0' for zeros, or 'r' for random floats between 0 and 1
-BenBrain::BenBrain(vector<int> layer_sizes, char mode)
+NNet::NNet(vector<int> layer_sizes, char mode)
 {
    assert(mode == '0' || mode == '1' || mode == 'r' || mode == 'h');
 
@@ -44,7 +44,7 @@ BenBrain::BenBrain(vector<int> layer_sizes, char mode)
    }
 }
 
-vector<Mat> BenBrain::weightsZero()
+vector<Mat> NNet::weightsZero()
 {
    auto vec = vector<Mat>();
    auto prev_it = m_layer_sizes.begin();
@@ -59,7 +59,7 @@ vector<Mat> BenBrain::weightsZero()
    return vec;
 }
 
-vector<Mat> BenBrain::biasesZero()
+vector<Mat> NNet::biasesZero()
 {
    auto vec = vector<Mat>();
    for (auto it = m_layer_sizes.begin() + 1; it != m_layer_sizes.end(); ++it)
@@ -100,7 +100,7 @@ std::vector<std::string> getNextLineAndSplitIntoTokens(std::istream &str)
    return result;
 }
 
-BenBrain::BenBrain(std::string file_path)
+NNet::NNet(std::string file_path)
 {
    ifstream file(file_path);
    std::vector<std::string> line_tokens;
@@ -129,7 +129,7 @@ BenBrain::BenBrain(std::string file_path)
    }
 }
 
-void BenBrain::save(std::string file_path) const
+void NNet::save(std::string file_path) const
 {
    ofstream file(file_path);
    // csv, format:
@@ -159,38 +159,29 @@ void BenBrain::save(std::string file_path) const
    }
 }
 
-Mat BenBrain::multipleCompute(const std::vector<Mat>& inputs) const {
+ParallelMat NNet::multipleCompute(const std::vector<Mat>& inputs) const {
    const unsigned INPUT_SIZE = m_layer_sizes[0];
    for(auto &input : inputs) {
       assert(input.getWidth() == 1);
       assert(input.getHeight() == INPUT_SIZE);
    }
-   const unsigned NUM_INPUTS = inputs.size();
 
-   vector<float> inputs_dup_data(NUM_INPUTS*INPUT_SIZE);
-
-   for(unsigned i = 0; i < NUM_INPUTS; i++) {
-      auto input_data = inputs[i].getVals();
-      std::copy(begin(input_data), end(input_data), begin(inputs_dup_data) + i*INPUT_SIZE);
-   }
-
-   Mat batch(INPUT_SIZE*NUM_INPUTS, 1, inputs_dup_data);
-   return multipleCompute(batch, NUM_INPUTS);
+   return multipleCompute(inputs);
 }
 
-Mat BenBrain::multipleCompute(const Mat& batch, unsigned batch_size) const {
+ParallelMat NNet::multipleCompute(const ParallelMat& batch) const {
    auto a_l = batch;
 
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto wa_l = m_weights[i].multipleMultiply(a_l, batch_size);
-      auto zl = m_biases[i].multipleAdd(wa_l, batch_size);
+      auto wa_l = m_weights[i] * a_l;
+      auto zl = m_biases[i] + wa_l;
       a_l = zl.relu();
    }
    return a_l;
 }
 
-Mat BenBrain::compute(const Mat &input) const
+Mat NNet::compute(const Mat &input) const
 {
    auto a_l = input;
 
@@ -204,7 +195,7 @@ Mat BenBrain::compute(const Mat &input) const
 
 // returns a vector of gradients for each weight based on
 // computed diffs from backpropagate
-vector<Mat> BenBrain::computeWeights(vector<Mat> &diffs, vector<Mat>& as) const
+vector<Mat> NNet::computeWeights(vector<Mat> &diffs, vector<Mat>& as) const
 {
    auto new_weights = vector<Mat>();
    for (unsigned i = 0; i < m_weights.size(); i++)
@@ -217,7 +208,7 @@ vector<Mat> BenBrain::computeWeights(vector<Mat> &diffs, vector<Mat>& as) const
 
 // returns a vector of gradients for each bias based on
 // computed diffs from backpropagate
-vector<Mat> BenBrain::computeBiases(vector<Mat> &diffs) const
+vector<Mat> NNet::computeBiases(vector<Mat> &diffs) const
 {
    auto new_biases = vector<Mat>();
    for (unsigned i = 0; i < m_biases.size(); i++)
@@ -227,17 +218,17 @@ vector<Mat> BenBrain::computeBiases(vector<Mat> &diffs) const
    return new_biases;
 }
 
-void BenBrain::adjustWeightsAndBiases(vector<Mat> &weight_grad, vector<Mat> &bias_grad, float learning_rate, unsigned iterations)
+void NNet::adjustWeightsAndBiases(vector<Mat> &weight_grad, vector<Mat> &bias_grad, float learning_rate, unsigned iterations)
 {
    float d = learning_rate / iterations;
    for (unsigned i = 0; i < weight_grad.size(); i++)
    {
-      m_weights[i] = m_weights[i] - weight_grad[i] * d;
-      m_biases[i] = m_biases[i] - bias_grad[i] * d;
+      m_weights[i] = m_weights[i] - d * weight_grad[i];
+      m_biases[i] = m_biases[i] - d * bias_grad[i];
    }
 }
 
-void BenBrain::forwardPass(const Mat& input, vector<Mat>& zs, vector<Mat>& as) const
+void NNet::forwardPass(const Mat& input, vector<Mat>& zs, vector<Mat>& as) const
 {
    as.push_back(input);
 
@@ -250,58 +241,57 @@ void BenBrain::forwardPass(const Mat& input, vector<Mat>& zs, vector<Mat>& as) c
 }
 
 
-void BenBrain::multipleBackPropagate(
+void NNet::multipleBackPropagate(
    const std::vector<Mat>& inputs, 
    const std::vector<Mat>& desired_outputs, 
    std::vector<Mat>& weight_grads_out, 
    std::vector<Mat>& bias_grads_out) const
 {
    assert(inputs.size() == desired_outputs.size());
-   const unsigned NUM_INPUTS = inputs.size();
-   vector<Mat> as;
-   vector<Mat> zs;
-   vector<Mat> diffs;
-   Mat inputs_dup = Mat::joinVector(inputs);
-   Mat desired_outputs_dup = Mat::joinVector(desired_outputs);
+   vector<ParallelMat> as;
+   vector<ParallelMat> zs;
+   vector<ParallelMat> diffs;
+   auto inputs_dup = ParallelMat{inputs};
+   auto desired_outputs_dup = ParallelMat{desired_outputs};
 
    as.push_back(inputs_dup);
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto wa_l = m_weights[i].multipleMultiply(as[i], NUM_INPUTS);
-      auto zl = m_biases[i].multipleAdd(wa_l, NUM_INPUTS);
+      auto wa_l = m_weights[i] * as[i];
+      auto zl = m_biases[i] + wa_l;
       zs.push_back(zl);
       as.push_back(zl.relu());
    }
 
    auto DaC = as.back() - desired_outputs_dup;
 
-   Mat zsback_runfun = zs.back().relu_inv();
-   Mat diff_end = DaC ^ zsback_runfun;
+   ParallelMat zsback_runfun = zs.back().relu_inv();
+   ParallelMat diff_end = DaC ^ zsback_runfun;
    diffs.push_back(diff_end);
 
    unsigned num_layers = m_layer_sizes.size() - 1;
 
    for (unsigned i = num_layers - 1; i >= 1; i--)
    {
-      Mat t_weights_x_diff_next = m_weights[i].transpose().multipleMultiply(diffs[0], NUM_INPUTS);
-      Mat diff_0 = t_weights_x_diff_next ^ zs[i - 1].relu_inv();
+      ParallelMat t_weights_x_diff_next = m_weights[i].transpose() * diffs[0];
+      ParallelMat diff_0 = t_weights_x_diff_next ^ zs[i - 1].relu_inv();
       diffs.insert(diffs.begin(), diff_0);
    }
 
 
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      Mat asit = as[i].multipleTranspose(NUM_INPUTS);
-      Mat new_weight_dup = diffs[i].multipleMultiMultiply(asit, NUM_INPUTS);
-      Mat new_weight = new_weight_dup.multipleSum(NUM_INPUTS);
+      ParallelMat asit = as[i].transpose();
+      ParallelMat new_weight_dup = diffs[i] * asit;
+      Mat new_weight = new_weight_dup.sum();
       weight_grads_out.push_back(new_weight);
-      bias_grads_out.push_back(diffs[i].multipleSum(NUM_INPUTS));
+      bias_grads_out.push_back(diffs[i].sum());
    }
 }
 
 // returns a vector of diffs that can be passed into
 // computeWeights or computeBiases
-void BenBrain::backPropagate(
+void NNet::backPropagate(
    const Mat &input,
    const Mat &desired_output,
    std::vector<Mat>& weight_grads_out, 
@@ -335,39 +325,39 @@ void BenBrain::backPropagate(
    }
 }
 
-float BenBrain::sigmoid_act(float x)
+float NNet::sigmoid_act(float x)
 {
    return 1 / (1 + std::exp(-x));
 }
 
-float BenBrain::sigmoid_inv(float x)
+float NNet::sigmoid_inv(float x)
 {
    float a_x = sigmoid_act(x);
    return a_x * (1 - a_x);
 }
 
-float BenBrain::reLU_act(float x)
+float NNet::reLU_act(float x)
 {
    if (x < 0)
       return 0;
    return x;
 }
 
-float BenBrain::reLU_inv(float x)
+float NNet::reLU_inv(float x)
 {
    if (x < 0)
       return 0;
    return 1;
 }
 
-float BenBrain::leaky_reLU_act(float x)
+float NNet::leaky_reLU_act(float x)
 {
    if (x < 0)
       return 0.1 * x;
    return x;
 }
 
-float BenBrain::leaky_reLU_inv(float x)
+float NNet::leaky_reLU_inv(float x)
 {
    if (x < 0)
       return 0.1;

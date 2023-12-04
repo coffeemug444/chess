@@ -7,8 +7,8 @@ LIBS=-lOpenCL -lsfml-graphics -lsfml-window -lsfml-system
 SRCDIR=src
 BINDIR=bin
 
-CLASSES = board piece benBrain benMat
-DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES) errors) 
+CLASSES = board piece mat nnet oclData errors parallelMat
+DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES)) 
 OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES) main)
 
 $(ODIR)/%.o: $(SRCDIR)/%.cpp $(DEPS)
