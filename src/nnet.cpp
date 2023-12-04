@@ -194,7 +194,7 @@ ParallelMat NNet::multipleCompute(const std::vector<Mat>& inputs) const {
       assert(input.getHeight() == INPUT_SIZE);
    }
 
-   return multipleCompute(inputs);
+   return multipleCompute(ParallelMat{inputs});
 }
 
 ParallelMat NNet::multipleCompute(const ParallelMat& batch) const {
@@ -283,58 +283,42 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
    float input_size_inv = 1.f / inputs.size();
 
    std::vector<Mat> weight_grads;
-   weight_grads.reserve(m_weights.size());
    std::vector<Mat> bias_grads;
-   bias_grads.reserve(m_biases.size());
 
-   vector<ParallelMat> activations;
-   vector<ParallelMat> layer_outputs;
-   vector<ParallelMat> diffs;
+   vector<ParallelMat> activations;    
+   vector<ParallelMat> layer_outputs;  // 'Zs'
    auto inputs_dup = ParallelMat{inputs};
    auto desired_outputs_dup = ParallelMat{desired_outputs};
 
    activations.push_back(inputs_dup);
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
-      auto weight_x_activation = m_weights[i] * activations[i];
-      auto layer_output = m_biases[i] + weight_x_activation;
-      layer_outputs.push_back(layer_output);
-      activations.push_back(layer_output.relu());
+      layer_outputs.push_back(m_biases[i] + m_weights[i] * activations[i]);
+      activations.push_back(layer_outputs.back().relu());
    }
 
    auto cost_derivative = activations.back() - desired_outputs_dup;
 
-   std::cout << "Backpropogating!\n";
 
    ParallelMat final_z_relu_inv = layer_outputs.back().relu_inv();
+   ParallelMat delta = cost_derivative ^ final_z_relu_inv;  
 
-   std::cout << "cost_derivative: [" << cost_derivative.getHeight() << ", " << cost_derivative.getWidth() << "] x" << cost_derivative.getCount() << '\n';
-   std::cout << "final_z_relu_inv: [" << final_z_relu_inv.getHeight() << ", " << final_z_relu_inv.getWidth() << "] x" << final_z_relu_inv.getCount() << '\n';
+   weight_grads.push_back(input_size_inv * (delta * activations[m_weights.size() - 1].transpose()).sum());
+   bias_grads.push_back(input_size_inv * delta.sum());
 
-   ParallelMat diff_end = cost_derivative ^ final_z_relu_inv;
-   std::cout << "diff_end: [" << diff_end.getHeight() << ", " << diff_end.getWidth() << "] x" << diff_end.getCount() << '\n';
 
-   diffs.push_back(diff_end);
+   int num_layers = m_weights.size();
 
-   unsigned num_layers = m_weights.size();
-
-   for (unsigned i = num_layers - 1; i >= 1; i--)
+   for (int i = 2 ; i <= num_layers; i++)
    {
-      auto& w_i = m_weights[i];
-      auto w_t = w_i.transpose();
-      auto& diff = diffs[0];
-      std::cout << "m_weights[i]: [" << w_i.getHeight() << ", " << w_i.getWidth() << "]\n";
-      ParallelMat t_weights_x_diff_next = w_i.transpose() ^ diffs[0];
-      std::cout << "t_weights_x_diff_next: [" << t_weights_x_diff_next.getHeight() << ", " << t_weights_x_diff_next.getWidth() << "] x" << t_weights_x_diff_next.getCount() << '\n';
-      ParallelMat diff_0 = t_weights_x_diff_next * layer_outputs[i - 1].relu_inv();
-      diffs.insert(diffs.begin(), diff_0);
-   }
+      int l = num_layers - i;
 
-   for (unsigned i = 0; i < m_weights.size(); i++)
-   {
-      ParallelMat weight_grad = diffs[i] * activations[i].transpose();
-      weight_grads.push_back(input_size_inv * weight_grad.sum());
-      bias_grads.push_back(input_size_inv * diffs[i].sum());
+      const ParallelMat& layer_output_i = layer_outputs[l];
+      const ParallelMat sp = layer_output_i.relu_inv();
+      delta = (m_weights[l + 1].transpose() * delta) ^ sp;
+
+      weight_grads.insert(weight_grads.begin(), input_size_inv * (delta * activations[l].transpose()).sum());
+      bias_grads.insert(bias_grads.begin(), input_size_inv * delta.sum());
    }
 
    return {weight_grads, bias_grads};
