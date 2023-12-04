@@ -241,13 +241,17 @@ void NNet::forwardPass(const Mat& input, vector<Mat>& zs, vector<Mat>& as) const
 }
 
 
-void NNet::multipleBackPropagate(
+std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
    const std::vector<Mat>& inputs, 
-   const std::vector<Mat>& desired_outputs, 
-   std::vector<Mat>& weight_grads_out, 
-   std::vector<Mat>& bias_grads_out) const
+   const std::vector<Mat>& desired_outputs) const
 {
    assert(inputs.size() == desired_outputs.size());
+
+   std::vector<Mat> weight_grads;
+   weight_grads.reserve(m_weights.size());
+   std::vector<Mat> bias_grads;
+   bias_grads.reserve(m_biases.size());
+
    vector<ParallelMat> as;
    vector<ParallelMat> zs;
    vector<ParallelMat> diffs;
@@ -265,8 +269,8 @@ void NNet::multipleBackPropagate(
 
    auto DaC = as.back() - desired_outputs_dup;
 
-   ParallelMat zsback_runfun = zs.back().relu_inv();
-   ParallelMat diff_end = DaC ^ zsback_runfun;
+   ParallelMat final_z_relu_inv = zs.back().relu_inv();
+   ParallelMat diff_end = DaC ^ final_z_relu_inv;
    diffs.push_back(diff_end);
 
    unsigned num_layers = m_layer_sizes.size() - 1;
@@ -284,27 +288,30 @@ void NNet::multipleBackPropagate(
       ParallelMat asit = as[i].transpose();
       ParallelMat new_weight_dup = diffs[i] * asit;
       Mat new_weight = new_weight_dup.sum();
-      weight_grads_out.push_back(new_weight);
-      bias_grads_out.push_back(diffs[i].sum());
+      weight_grads.push_back(new_weight);
+      bias_grads.push_back(diffs[i].sum());
    }
 }
 
 // returns a vector of diffs that can be passed into
 // computeWeights or computeBiases
-void NNet::backPropagate(
+std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    const Mat &input,
-   const Mat &desired_output,
-   std::vector<Mat>& weight_grads_out, 
-   std::vector<Mat>& bias_grads_out) const
+   const Mat &desired_output) const
 {
+   std::vector<Mat> weight_grads;
+   weight_grads.reserve(m_weights.size());
+   std::vector<Mat> bias_grads;
+   bias_grads.reserve(m_biases.size());
+
    vector<Mat> zs;
    vector<Mat> as;
    vector<Mat> diffs;
    forwardPass(input, zs, as);
    auto DaC = as.back() - desired_output;
 
-   Mat zsback_runfun = zs.back().relu_inv();
-   Mat diff_end = DaC ^ zsback_runfun;
+   Mat final_z_relu_inv = zs.back().relu_inv();
+   Mat diff_end = DaC ^ final_z_relu_inv;
    diffs.push_back(diff_end);
 
    int num_layers = m_layer_sizes.size() - 1; // has extra input layer we don't care about
@@ -320,8 +327,8 @@ void NNet::backPropagate(
    {
       Mat asit = as[i].transpose();
       Mat new_weight = diffs[i] * asit;
-      weight_grads_out.push_back(new_weight);
-      bias_grads_out.push_back(diffs[i]);
+      weight_grads.push_back(new_weight);
+      bias_grads.push_back(diffs[i]);
    }
 }
 

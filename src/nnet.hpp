@@ -29,8 +29,12 @@ class NNet {
       ParallelMat multipleCompute(const std::vector<Mat>& inputs) const;
       Mat compute(const Mat& input) const;
       void adjustWeightsAndBiases(std::vector<Mat>& weight_grad, std::vector<Mat>& bias_grad, float learning_rate, unsigned iterations);
-      void backPropagate(const Mat& input, const Mat& desired_output, std::vector<Mat>& weight_grads_out, std::vector<Mat>& bias_grads_out) const;
-      void multipleBackPropagate(const std::vector<Mat>& inputs, const std::vector<Mat>& desired_outputs, std::vector<Mat>& weight_grads_out, std::vector<Mat>& bias_grads_out) const;
+
+      // returns [weight_grads, bias_grads]
+      std::pair<std::vector<Mat>,std::vector<Mat>> backPropagate(const Mat& input, const Mat& desired_output) const;
+
+      // returns [weight_grads, bias_grads]
+      std::pair<std::vector<Mat>,std::vector<Mat>> multipleBackPropagate(const std::vector<Mat>& inputs, const std::vector<Mat>& desired_outputs) const;
 
       std::vector<Mat> weightsZero();
       std::vector<Mat> biasesZero();
