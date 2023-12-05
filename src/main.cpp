@@ -18,26 +18,25 @@ int main()
 {
    std::random_device rd;
    std::mt19937 gen(rd());
-
-   std::uniform_real_distribution<float> dist(-5.f, 5.f);
    
-   NNet nn({2, 8, 4, 2}, 'r', NNet::REGRESSION);
+   NNet nn({2, 8, 4, 1}, 'h', NNet::BINARY_CLASSIFICATION);
 
-   int batch_size = 20;
+   int batch_size = 50;
 
-   for (int epoch = 0; epoch < 100; epoch++)
+   for (int epoch = 0; epoch < 1000; epoch++)
    {
-
-      std::cout << "------ EPOCH " << epoch << " ------\n";
       std::vector<Mat> input_batch;
       std::vector<Mat> desired_batch;
       for (int batch = 0; batch < batch_size; batch++)
       {
-         std::vector<float> input_vec {dist(gen), dist(gen)};
-         float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
+         float a, b;
+         a = static_cast<float>(gen() % 2);
+         b = static_cast<float>(gen() % 2);
+         std::vector<float> input_vec {a,b};
+         float desired_result = (a == b) ? 0 : 1;
 
          input_batch.push_back({2,1,input_vec});
-         desired_batch.push_back({2,1,std::vector<float>{1.f - desired_result, desired_result}});
+         desired_batch.push_back({1,1,std::vector<float>{desired_result}});
       }
 
       auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
@@ -50,23 +49,23 @@ int main()
    int total_correct = 0;
    for (int i = 0; i < 10; i++)
    {
-      std::vector<float> input_vec {dist(gen), dist(gen)};
-      float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
-      Mat true_v{2,1,std::vector<float>{1.f - desired_result, desired_result}};
+      float a, b;
+      a = static_cast<float>(gen() % 2);
+      b = static_cast<float>(gen() % 2);
+      std::vector<float> input_vec {a,b};
+      float desired_result = (a == b) ? 0 : 1;
+      Mat true_v{1,1,std::vector<float>{desired_result}};
       Mat result = nn.compute({2,1,input_vec});
       
-      auto vals = result.getVals();
-      int output = vals[1] > vals[0] ? 0 : 1;
+      float output = result.getVals()[0];
 
-      bool correct = static_cast<float>(output) == desired_result;
+      int rounded = static_cast<int>(output + 0.5f);
 
-      int confidence = 100 * vals[1-output];
+      bool correct = std::abs(desired_result-output) < 0.5f;
 
-      float a,b;
-      a = input_vec[0] < 0 ? 0 : 1;
-      b = input_vec[1] < 0 ? 0 : 1;
+      int confidence = 100*2*std::abs(output - 0.5f);
       
-      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << output << " (" << confidence << "\% confident" << ")\n";
+      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << rounded << " (" << confidence << "\% confident" << ")\n";
 
       total_correct += correct;
    }

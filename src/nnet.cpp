@@ -219,10 +219,6 @@ void NNet::adjustWeightsAndBiases(const vector<Mat> &weight_grad, const vector<M
 {
    for (unsigned i = 0; i < weight_grad.size(); i++)
    {
-      auto h = weight_grad[i].getHeight();
-      auto w = weight_grad[i].getWidth();
-      std::cout << "Layer " << i << " avg weight grad: " << std::sqrt((learning_rate * weight_grad[i]).sumOfSquares()/(h*w))<< '\n';
-      std::cout << "Layer " << i << " avg bias grad: " << std::sqrt((learning_rate * bias_grad[i]).sumOfSquares()/w) << '\n';
       m_weights[i] = m_weights[i] - learning_rate * weight_grad[i];
       m_biases[i] = m_biases[i] - learning_rate * bias_grad[i];
    }
@@ -273,13 +269,13 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
       {
       case BINARY_CLASSIFICATION:
          return {
-               layer_outputs.back().sigmoid_inv(),
-               activations.back() - desired_outputs_dup
+            layer_outputs.back().sigmoid_inv(),
+            desired_outputs_dup.binary_crossentropy_loss_derivative(activations.back())
          };
       case MULTICLASS_CLASSIFICATION:
          return {
-               layer_outputs.back().sigmoid_inv(),
-               activations.back().softmax() - desired_outputs_dup
+            layer_outputs.back().sigmoid_inv(),
+            activations.back().softmax() - desired_outputs_dup
          };
       case REGRESSION:
       default:
