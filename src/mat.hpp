@@ -61,8 +61,19 @@ public:
    const Mat& operator= (const Mat &other);
    const Mat& operator= (const Mat &&other);
 
+
+   // assumes this matrix is your true values, `prediction` is your nn output
+   Mat binary_crossentropy_loss(const Mat& prediction) const;
+   Mat binary_crossentropy_loss_derivative(const Mat& prediction) const;
+
+   // sum of all the elements in this matrix
+   float sum();
+
    Mat relu() const;
    Mat relu_inv() const;
+
+   Mat sigmoid() const;
+   Mat sigmoid_inv() const;
    
    Mat transpose() const;
 

@@ -32,5 +32,9 @@ extern cl::Kernel sub_col_kernel;
 extern cl::Kernel dot_col_kernel;
 extern cl::Kernel relu_kernel;
 extern cl::Kernel relu_inv_kernel;
+extern cl::Kernel sigmoid_kernel;
+extern cl::Kernel sigmoid_inv_kernel;
+extern cl::Kernel binary_CEL_kernel;
+extern cl::Kernel binary_CEL_derivative_kernel;
 
 void ocl_init();

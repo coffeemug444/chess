@@ -19,6 +19,12 @@ public:
 
    ParallelMat relu() const;
    ParallelMat relu_inv() const;
+   ParallelMat sigmoid() const;
+   ParallelMat sigmoid_inv() const;
+
+   // assumes this matrix is your true values, `prediction` is your nn output
+   ParallelMat binary_crossentropy_loss(const ParallelMat& prediction) const;
+   ParallelMat binary_crossentropy_loss_derivative(const ParallelMat& prediction) const;
 
    unsigned getWidth() const { return m_width; }
    unsigned getHeight() const { return m_height; }

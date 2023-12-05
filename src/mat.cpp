@@ -269,6 +269,80 @@ Mat Mat::relu_inv() const
 }
 
 
+Mat Mat::sigmoid() const
+{
+   const int N_ELEMENTS = m_width*m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      sigmoid_kernel.setArg( 0, m_buffer );
+      sigmoid_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel(sigmoid_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in sigmoid: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+Mat Mat::sigmoid_inv() const
+{
+   const int N_ELEMENTS = m_width*m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      sigmoid_inv_kernel.setArg( 0, m_buffer );
+      sigmoid_inv_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel( sigmoid_inv_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in sigmoid_inv: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+Mat Mat::binary_crossentropy_loss(const Mat& prediction) const
+{
+   const int N_ELEMENTS = m_width * m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+   cl::NDRange global( N_ELEMENTS );
+   try {
+      binary_CEL_kernel.setArg( 0, m_buffer );
+      binary_CEL_kernel.setArg( 1, prediction.m_buffer);
+      binary_CEL_kernel.setArg( 2, out_buffer );
+      ocl_queue.enqueueNDRangeKernel( binary_CEL_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in binary_crossentropy_loss: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+Mat Mat::binary_crossentropy_loss_derivative(const Mat& prediction)  const
+{
+   const int N_ELEMENTS = m_width * m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+   cl::NDRange global( N_ELEMENTS );
+   try {
+      binary_CEL_derivative_kernel.setArg( 0, m_buffer );
+      binary_CEL_derivative_kernel.setArg( 1, prediction.m_buffer);
+      binary_CEL_derivative_kernel.setArg( 2, out_buffer );
+      ocl_queue.enqueueNDRangeKernel( binary_CEL_derivative_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+// sum of all the elements in this matrix
+float Mat::sum()
+{
+   auto vals = getVals();
+   return std::accumulate(vals.begin(), vals.end(), 0.f);
+}
+
+
 Mat Mat::runFun(float function(float)) const
 {
    std::vector<float> invals(m_width * m_height);

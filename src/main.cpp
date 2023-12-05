@@ -21,7 +21,7 @@ int main()
 
    std::uniform_real_distribution<float> dist(-5.f, 5.f);
    
-   NNet nn({2, 8, 4, 1}, 'r');
+   NNet nn({2, 8, 4, 1}, 'r', NNet::REGRESSION);
 
    int batch_size = 10;
 
@@ -37,25 +37,7 @@ int main()
          desired_batch.push_back({1,1,{result}});
       }
 
-      std::cout << "epoch " << epoch << ' ';
-      auto [weight_diffs, bias_diffs] = nn.multipleBackPropagate(input_batch, desired_batch);
-      // std::cout << "[0,0] of weight diffs on epoch " << epoch << ": {";
-      // std::string delim = "";
-      // for (const auto& w : weight_diffs)
-      // {
-      //    std::cout << delim << w.getVals().at(0);
-      //    delim = ", ";
-      // }
-      // std::cout << "}\n";
-      // std::cout << "[0,0] of bias diffs on epoch " << epoch << ": {";
-      // delim = "";
-      // for (const auto& b : bias_diffs)
-      // {
-      //    std::cout << delim << b.getVals().at(0);
-      //    delim = ", ";
-      // }
-      // std::cout << "}\n";
-
+      auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
 
       float learning_rate = 0.03f;
 

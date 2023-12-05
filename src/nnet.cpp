@@ -17,10 +17,11 @@ NNet::NNet(){};
 // An extra layer is added to the beginning notating the number
 // of inputs into the net (layer_sizes' length is 1 greater than
 // the number of layers in the net)
-// mode is '1' for ones, '0' for zeros, or 'r' for random floats between 0 and 1
-NNet::NNet(vector<int> layer_sizes, char mode)
+// initialisation is '1' for ones, '0' for zeros, or 'r' for random floats between 0 and 1
+NNet::NNet(vector<int> layer_sizes, char initialisation, Mode mode)
+:m_mode{mode}
 {
-   assert(mode == '0' || mode == '1' || mode == 'r' || mode == 'h');
+   assert(initialisation == '0' || initialisation == '1' || initialisation == 'r' || initialisation == 'h');
 
    m_layer_sizes.push_back(layer_sizes[0]);
 
@@ -28,7 +29,7 @@ NNet::NNet(vector<int> layer_sizes, char mode)
    {
       m_layer_sizes.push_back(layer_sizes[i]);
       m_biases.push_back(Mat::zeros(layer_sizes[i], 1));
-      switch (mode)
+      switch (initialisation)
       {
       case '0':
          m_weights.push_back(Mat::zeros(layer_sizes[i], layer_sizes[i - 1]));
@@ -190,33 +191,17 @@ Mat NNet::compute(const Mat &input) const
    {
       auto zl = m_weights[i] * a_l + m_biases[i];
       a_l = zl.relu();
+
+      if (i < m_weights.size() - 1 || m_mode == REGRESSION)
+      {
+         a_l = zl.relu();
+      }
+      else
+      {
+         a_l = zl.sigmoid();
+      }
    }
    return a_l;
-}
-
-// returns a vector of gradients for each weight based on
-// computed diffs from backpropagate
-vector<Mat> NNet::computeWeightGradients(vector<Mat> &diffs, vector<Mat>& activations) const
-{
-   auto new_weights = vector<Mat>();
-   for (unsigned i = 0; i < m_weights.size(); i++)
-   {
-      Mat new_weight = diffs[i] * activations[i].transpose();
-      new_weights.push_back(new_weight);
-   }
-   return new_weights;
-}
-
-// returns a vector of gradients for each bias based on
-// computed diffs from backpropagate
-vector<Mat> NNet::computeBiaseGradients(vector<Mat> &diffs) const
-{
-   auto new_biases = vector<Mat>();
-   for (unsigned i = 0; i < m_biases.size(); i++)
-   {
-      new_biases.push_back(diffs[i]);
-   }
-   return new_biases;
 }
 
 void NNet::adjustWeightsAndBiases(const vector<Mat> &weight_grad, const vector<Mat> &bias_grad, float learning_rate)
@@ -240,14 +225,21 @@ std::pair<vector<Mat>, vector<Mat>> NNet::forwardPass(const Mat& input) const
    {
       auto zl = m_weights[i] * activations[i] + m_biases[i];
       layer_outputs.push_back(zl);
-      activations.push_back(zl.relu());
+      if (i < m_weights.size() - 1 || m_mode == REGRESSION)
+      {
+         activations.push_back(zl.relu());
+      }
+      else
+      {
+         activations.push_back(zl.sigmoid());
+      }
    }
 
    return {layer_outputs, activations};
 }
 
 
-std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
+std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    const std::vector<Mat>& inputs, 
    const std::vector<Mat>& desired_outputs) const
 {
@@ -270,8 +262,15 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
       activations.push_back(layer_outputs.back().relu());
    }
 
-   auto cost_derivative = activations.back() - desired_outputs_dup;
-
+   ParallelMat cost_derivative = [&]() -> ParallelMat
+   {
+      if (m_mode == CLASSIFICATION)
+      {
+         return activations.back().binary_crossentropy_loss_derivative(desired_outputs_dup);
+      } 
+      else return activations.back() - desired_outputs_dup;
+   }();
+   
 
    ParallelMat final_z_relu_inv = layer_outputs.back().relu_inv();
    ParallelMat delta = cost_derivative ^ final_z_relu_inv;  
@@ -295,82 +294,4 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::multipleBackPropagate(
    }
 
    return {weight_grads, bias_grads};
-}
-
-// returns a vector of diffs that can be passed into
-// computeWeights or computeBiases
-std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
-   const Mat &input,
-   const Mat &desired_output) const
-{
-   std::vector<Mat> weight_grads;
-   weight_grads.reserve(m_weights.size());
-   std::vector<Mat> bias_grads;
-   bias_grads.reserve(m_biases.size());
-
-   vector<Mat> diffs;
-   auto [layer_outputs, activations] = forwardPass(input);
-   auto cost_derivative = activations.back() - desired_output;
-
-   Mat final_z_relu_inv = layer_outputs.back().relu_inv();
-   Mat diff_end = cost_derivative * final_z_relu_inv;
-   diffs.push_back(diff_end);
-
-   int num_layers = m_layer_sizes.size() - 1; // has extra input layer we don't care about
-
-   for (unsigned i = num_layers - 1; i >= 1; i--)
-   {
-      Mat t_weights_x_diff_next = m_weights[i].transpose() * diffs[0];
-      Mat diff_0 = t_weights_x_diff_next ^ layer_outputs[i - 1].relu_inv();
-      diffs.insert(diffs.begin(), diff_0);
-   }
-
-   for (unsigned i = 0; i < m_weights.size(); i++)
-   {
-      Mat activation_transpose = activations[i].transpose();
-      Mat new_weight = diffs[i] * activation_transpose;
-      weight_grads.push_back(new_weight);
-      bias_grads.push_back(diffs[i]);
-   }
-
-   return {weight_grads, bias_grads};
-}
-
-float NNet::sigmoid_act(float x)
-{
-   return 1 / (1 + std::exp(-x));
-}
-
-float NNet::sigmoid_inv(float x)
-{
-   float a_x = sigmoid_act(x);
-   return a_x * (1 - a_x);
-}
-
-float NNet::reLU_act(float x)
-{
-   if (x < 0)
-      return 0;
-   return x;
-}
-
-float NNet::reLU_inv(float x)
-{
-   if (x < 0)
-      return 0;
-   return 1;
-}
-
-float NNet::leaky_reLU_act(float x)
-{
-   if (x < 0)
-      return 0.01 * x;
-   return x;
-}
-
-float NNet::leaky_reLU_inv(float x)
-{
-   if (x < 0)
-      return 0.01;
-   return 1;
 }

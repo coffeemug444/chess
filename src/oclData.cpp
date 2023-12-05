@@ -29,6 +29,10 @@ cl::Kernel sub_col_kernel;
 cl::Kernel dot_col_kernel;
 cl::Kernel relu_kernel;
 cl::Kernel relu_inv_kernel;
+cl::Kernel sigmoid_kernel;
+cl::Kernel sigmoid_inv_kernel;
+cl::Kernel binary_CEL_kernel;
+cl::Kernel binary_CEL_derivative_kernel;
 
 
 void ocl_init()
@@ -64,7 +68,11 @@ void ocl_init()
       "kernels/sub_col.cl",
       "kernels/dot_col.cl",
       "kernels/relu.cl",
-      "kernels/relu_inv.cl"
+      "kernels/relu_inv.cl",
+      "kernels/sigmoid.cl",
+      "kernels/sigmoid_inv.cl",
+      "kernels/binary_CEL.cl",
+      "kernels/binary_CEL_derivative.cl"
    };
    cl::Program::Sources sources;
    for (auto& path : sourcePaths) {
@@ -97,6 +105,10 @@ void ocl_init()
    dot_col_kernel                   = cl::Kernel(program, "dot_col");
    relu_kernel                      = cl::Kernel(program, "relu");
    relu_inv_kernel                  = cl::Kernel(program, "relu_inv");
+   sigmoid_kernel                   = cl::Kernel(program, "sigmoid");
+   sigmoid_inv_kernel               = cl::Kernel(program, "sigmoid_inv");
+   binary_CEL_kernel                = cl::Kernel(program, "binary_CEL");
+   binary_CEL_derivative_kernel     = cl::Kernel(program, "binary_CEL_derivative");
 
    ocl_queue.finish();
 

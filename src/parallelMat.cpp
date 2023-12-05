@@ -177,3 +177,68 @@ ParallelMat ParallelMat::relu_inv() const
    return ParallelMat(out_buffer, m_height, m_width, m_count);
 }
 
+ParallelMat ParallelMat::sigmoid() const
+{
+   const int N_ELEMENTS = m_width*m_height*m_count;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      sigmoid_kernel.setArg( 0, m_buffer );
+      sigmoid_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel(sigmoid_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in sigmoid: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(out_buffer, m_height, m_width, m_count);
+}
+
+ParallelMat ParallelMat::sigmoid_inv() const
+{
+   const int N_ELEMENTS = m_width*m_height*m_count;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      sigmoid_inv_kernel.setArg( 0, m_buffer );
+      sigmoid_inv_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel( sigmoid_inv_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in sigmoid_inv: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(out_buffer, m_height, m_width, m_count);
+}
+
+ParallelMat ParallelMat::binary_crossentropy_loss(const ParallelMat& prediction) const
+{
+   const int N_ELEMENTS = m_width*m_height*m_count;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+   cl::NDRange global( N_ELEMENTS );
+   try {
+      binary_CEL_kernel.setArg( 0, m_buffer );
+      binary_CEL_kernel.setArg( 1, prediction.m_buffer);
+      binary_CEL_kernel.setArg( 2, out_buffer );
+      ocl_queue.enqueueNDRangeKernel( binary_CEL_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in binary_crossentropy_loss: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(out_buffer, m_height, m_width, m_count);
+}
+
+ParallelMat ParallelMat::binary_crossentropy_loss_derivative(const ParallelMat& prediction)  const
+{
+   const int N_ELEMENTS = m_width*m_height*m_count;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+   cl::NDRange global( N_ELEMENTS );
+   try {
+      binary_CEL_derivative_kernel.setArg( 0, m_buffer );
+      binary_CEL_derivative_kernel.setArg( 1, prediction.m_buffer);
+      binary_CEL_derivative_kernel.setArg( 2, out_buffer );
+      ocl_queue.enqueueNDRangeKernel( binary_CEL_derivative_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(out_buffer, m_height, m_width, m_count);
+}
