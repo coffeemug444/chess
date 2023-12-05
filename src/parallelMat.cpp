@@ -209,6 +209,16 @@ ParallelMat ParallelMat::sigmoid_inv() const
    return ParallelMat(out_buffer, m_height, m_width, m_count);
 }
 
+ParallelMat ParallelMat::softmax() const
+{
+   auto subvecs = toVector();
+   for (unsigned i = 0; i < subvecs.size(); i++)
+   {
+      subvecs[i] = subvecs[i].softmax();
+   }
+   return ParallelMat{subvecs};
+}
+
 ParallelMat ParallelMat::binary_crossentropy_loss(const ParallelMat& prediction) const
 {
    const int N_ELEMENTS = m_width*m_height*m_count;

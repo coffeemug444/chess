@@ -190,15 +190,26 @@ Mat NNet::compute(const Mat &input) const
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
       auto zl = m_weights[i] * a_l + m_biases[i];
-      a_l = zl.relu();
 
-      if (i < m_weights.size() - 1 || m_mode == REGRESSION)
+      if (i < m_weights.size() - 1)
       {
          a_l = zl.relu();
       }
       else
       {
-         a_l = zl.sigmoid();
+         switch(m_mode)
+         {
+         case BINARY_CLASSIFICATION:
+            a_l = zl.sigmoid();
+            break;
+         case MULTICLASS_CLASSIFICATION:
+            a_l = zl.sigmoid().softmax();
+            break;
+         case REGRESSION:
+         default:
+            a_l = zl.relu();
+            break;
+         }
       }
    }
    return a_l;
@@ -208,44 +219,20 @@ void NNet::adjustWeightsAndBiases(const vector<Mat> &weight_grad, const vector<M
 {
    for (unsigned i = 0; i < weight_grad.size(); i++)
    {
+      auto h = weight_grad[i].getHeight();
+      auto w = weight_grad[i].getWidth();
+      std::cout << "Layer " << i << " avg weight grad: " << std::sqrt((learning_rate * weight_grad[i]).sumOfSquares()/(h*w))<< '\n';
+      std::cout << "Layer " << i << " avg bias grad: " << std::sqrt((learning_rate * bias_grad[i]).sumOfSquares()/w) << '\n';
       m_weights[i] = m_weights[i] - learning_rate * weight_grad[i];
       m_biases[i] = m_biases[i] - learning_rate * bias_grad[i];
    }
 }
-
-std::pair<vector<Mat>, vector<Mat>> NNet::forwardPass(const Mat& input) const
-{
-   vector<Mat> layer_outputs, activations;
-   layer_outputs.reserve(m_weights.size());
-   activations.reserve(m_weights.size());
-
-   activations.push_back(input);
-
-   for (unsigned i = 0; i < m_weights.size(); i++)
-   {
-      auto zl = m_weights[i] * activations[i] + m_biases[i];
-      layer_outputs.push_back(zl);
-      if (i < m_weights.size() - 1 || m_mode == REGRESSION)
-      {
-         activations.push_back(zl.relu());
-      }
-      else
-      {
-         activations.push_back(zl.sigmoid());
-      }
-   }
-
-   return {layer_outputs, activations};
-}
-
 
 std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    const std::vector<Mat>& inputs, 
    const std::vector<Mat>& desired_outputs) const
 {
    assert(inputs.size() == desired_outputs.size());
-
-   float input_size_inv = 1.f / inputs.size();
 
    std::vector<Mat> weight_grads;
    std::vector<Mat> bias_grads;
@@ -259,7 +246,25 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
    for (unsigned i = 0; i < m_weights.size(); i++)
    {
       layer_outputs.push_back(m_biases[i] + m_weights[i] * activations[i]);
-      activations.push_back(layer_outputs.back().relu());
+
+      if (i < m_weights.size() - 1)
+      {
+         activations.push_back(layer_outputs.back().relu());
+      }
+      else
+      {
+         switch(m_mode)
+         {
+         case BINARY_CLASSIFICATION:
+         case MULTICLASS_CLASSIFICATION:
+            activations.push_back(layer_outputs.back().sigmoid());
+            break;
+         case REGRESSION:
+         default:
+            activations.push_back(layer_outputs.back().relu());
+            break;
+         }
+      }
    }
 
    auto [final_inv, cost_derivative] = [&]() -> std::pair<ParallelMat,ParallelMat>
@@ -269,8 +274,13 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
       case BINARY_CLASSIFICATION:
          return {
                layer_outputs.back().sigmoid_inv(),
-               desired_outputs_dup.binary_crossentropy_loss_derivative(activations.back())
-            };
+               activations.back() - desired_outputs_dup
+         };
+      case MULTICLASS_CLASSIFICATION:
+         return {
+               layer_outputs.back().sigmoid_inv(),
+               activations.back().softmax() - desired_outputs_dup
+         };
       case REGRESSION:
       default:
          return {
@@ -280,12 +290,10 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
       }
    }();
    
-
    ParallelMat delta = cost_derivative ^ final_inv;  
 
-   weight_grads.push_back(input_size_inv * (delta * activations[m_weights.size() - 1].transpose()).sum());
-   bias_grads.push_back(input_size_inv * delta.sum());
-
+   weight_grads.push_back((delta * activations[m_weights.size() - 1].transpose()).sum() / inputs.size());
+   bias_grads.push_back(delta.sum()  / inputs.size());
 
    int num_layers = m_weights.size();
 
@@ -297,8 +305,8 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
       const ParallelMat sp = layer_output_i.relu_inv();
       delta = (m_weights[l + 1].transpose() * delta) ^ sp;
 
-      weight_grads.insert(weight_grads.begin(), input_size_inv * (delta * activations[l].transpose()).sum());
-      bias_grads.insert(bias_grads.begin(), input_size_inv * delta.sum());
+      weight_grads.insert(weight_grads.begin(), (delta * activations[l].transpose()).sum() / inputs.size());
+      bias_grads.insert(bias_grads.begin(), delta.sum() / inputs.size());
    }
 
    return {weight_grads, bias_grads};

@@ -21,12 +21,14 @@ int main()
 
    std::uniform_real_distribution<float> dist(-5.f, 5.f);
    
-   NNet nn({2, 8, 4, 1}, 'r', NNet::BINARY_CLASSIFICATION);
+   NNet nn({2, 8, 4, 2}, 'r', NNet::REGRESSION);
 
-   int batch_size = 5;
+   int batch_size = 20;
 
-   for (int epoch = 0; epoch < 500; epoch++)
+   for (int epoch = 0; epoch < 100; epoch++)
    {
+
+      std::cout << "------ EPOCH " << epoch << " ------\n";
       std::vector<Mat> input_batch;
       std::vector<Mat> desired_batch;
       for (int batch = 0; batch < batch_size; batch++)
@@ -35,12 +37,12 @@ int main()
          float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
 
          input_batch.push_back({2,1,input_vec});
-         desired_batch.push_back({1,1,{desired_result}});
+         desired_batch.push_back({2,1,std::vector<float>{1.f - desired_result, desired_result}});
       }
 
       auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
 
-      float learning_rate = 0.003f;
+      float learning_rate = 0.03f;
 
       nn.adjustWeightsAndBiases(weight_diffs, bias_diffs, learning_rate);
    }
@@ -50,21 +52,21 @@ int main()
    {
       std::vector<float> input_vec {dist(gen), dist(gen)};
       float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
-      Mat true_v{1,1,{desired_result}};
+      Mat true_v{2,1,std::vector<float>{1.f - desired_result, desired_result}};
       Mat result = nn.compute({2,1,input_vec});
       
       auto vals = result.getVals();
-      float output = vals[0] > 0.5f ? 1 : 0;
+      int output = vals[1] > vals[0] ? 0 : 1;
 
-      bool correct = output == desired_result;
+      bool correct = static_cast<float>(output) == desired_result;
+
+      int confidence = 100 * vals[1-output];
 
       float a,b;
       a = input_vec[0] < 0 ? 0 : 1;
       b = input_vec[1] < 0 ? 0 : 1;
-
-      float loss = true_v.binary_crossentropy_loss(result).sum() / (-1);
       
-      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << output << ", loss " << loss << " [" << result.getVals()[0] << "]\n";
+      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << output << " (" << confidence << "\% confident" << ")\n";
 
       total_correct += correct;
    }

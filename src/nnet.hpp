@@ -8,6 +8,7 @@ class NNet {
    public:
       enum Mode {
          BINARY_CLASSIFICATION,
+         MULTICLASS_CLASSIFICATION,
          REGRESSION
       };
 
@@ -25,9 +26,6 @@ class NNet {
       NNet(std::vector<int> layer_sizes, char initialisation, Mode mode);
       NNet(std::string file_path);
       void save(std::string file_path) const;
-
-      // returns [layer_outputs, activations]
-      std::pair<std::vector<Mat>, std::vector<Mat>> forwardPass(const Mat& input) const;
 
       ParallelMat multipleCompute(const std::vector<Mat>& inputs) const;
       Mat compute(const Mat& input) const;

@@ -67,14 +67,20 @@ public:
    Mat binary_crossentropy_loss_derivative(const Mat& prediction) const;
 
    // sum of all the elements in this matrix
-   float sum();
+   float sum() const;
+   float sumOfSquares() const;
 
    Mat relu() const;
    Mat relu_inv() const;
 
    Mat sigmoid() const;
    Mat sigmoid_inv() const;
-   
+
+   Mat log() const;
+   Mat exp() const;
+
+   Mat softmax() const;
+
    Mat transpose() const;
 
    float getVal(unsigned row, unsigned col);

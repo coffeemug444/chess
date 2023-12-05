@@ -301,6 +301,44 @@ Mat Mat::sigmoid_inv() const
    return Mat(m_height, m_width, out_buffer);
 }
 
+Mat Mat::log() const
+{
+   const int N_ELEMENTS = m_width*m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      log_kernel.setArg( 0, m_buffer );
+      log_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel( log_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in log: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+Mat Mat::exp() const
+{
+   const int N_ELEMENTS = m_width*m_height;
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS * sizeof(float));
+   try {
+      exp_kernel.setArg( 0, m_buffer );
+      exp_kernel.setArg( 1, out_buffer);
+      cl::NDRange global( N_ELEMENTS );
+      ocl_queue.enqueueNDRangeKernel( exp_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in exp: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(m_height, m_width, out_buffer);
+}
+
+Mat Mat::softmax() const
+{
+   auto e = exp();
+   return e / (e.sum());
+}
+
 Mat Mat::binary_crossentropy_loss(const Mat& prediction) const
 {
    const int N_ELEMENTS = m_width * m_height;
@@ -336,10 +374,22 @@ Mat Mat::binary_crossentropy_loss_derivative(const Mat& prediction)  const
 }
 
 // sum of all the elements in this matrix
-float Mat::sum()
+float Mat::sum() const
 {
    auto vals = getVals();
    return std::accumulate(vals.begin(), vals.end(), 0.f);
+}
+
+float Mat::sumOfSquares() const
+{
+   auto vals = getVals();
+   float total = 0;
+   for (float val : vals)
+   {
+      total += val * val;
+   }
+
+   return total;
 }
 
 

@@ -22,6 +22,10 @@ public:
    ParallelMat sigmoid() const;
    ParallelMat sigmoid_inv() const;
 
+   ParallelMat log() const;
+   ParallelMat exp() const;
+   ParallelMat softmax() const;
+
    // assumes this matrix is your true values, `prediction` is your nn output
    ParallelMat binary_crossentropy_loss(const ParallelMat& prediction) const;
    ParallelMat binary_crossentropy_loss_derivative(const ParallelMat& prediction) const;
