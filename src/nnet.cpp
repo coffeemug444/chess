@@ -262,18 +262,26 @@ std::pair<std::vector<Mat>,std::vector<Mat>> NNet::backPropagate(
       activations.push_back(layer_outputs.back().relu());
    }
 
-   ParallelMat cost_derivative = [&]() -> ParallelMat
+   auto [final_inv, cost_derivative] = [&]() -> std::pair<ParallelMat,ParallelMat>
    {
-      if (m_mode == CLASSIFICATION)
+      switch(m_mode)
       {
-         return activations.back().binary_crossentropy_loss_derivative(desired_outputs_dup);
-      } 
-      else return activations.back() - desired_outputs_dup;
+      case BINARY_CLASSIFICATION:
+         return {
+               layer_outputs.back().sigmoid_inv(),
+               desired_outputs_dup.binary_crossentropy_loss_derivative(activations.back())
+            };
+      case REGRESSION:
+      default:
+         return {
+            layer_outputs.back().relu_inv(),
+            activations.back() - desired_outputs_dup
+         };
+      }
    }();
    
 
-   ParallelMat final_z_relu_inv = layer_outputs.back().relu_inv();
-   ParallelMat delta = cost_derivative ^ final_z_relu_inv;  
+   ParallelMat delta = cost_derivative ^ final_inv;  
 
    weight_grads.push_back(input_size_inv * (delta * activations[m_weights.size() - 1].transpose()).sum());
    bias_grads.push_back(input_size_inv * delta.sum());

@@ -21,25 +21,26 @@ int main()
 
    std::uniform_real_distribution<float> dist(-5.f, 5.f);
    
-   NNet nn({2, 8, 4, 1}, 'r', NNet::REGRESSION);
+   NNet nn({2, 8, 4, 1}, 'r', NNet::BINARY_CLASSIFICATION);
 
-   int batch_size = 10;
+   int batch_size = 5;
 
-   for (int epoch = 0; epoch < 100; epoch++)
+   for (int epoch = 0; epoch < 500; epoch++)
    {
       std::vector<Mat> input_batch;
       std::vector<Mat> desired_batch;
       for (int batch = 0; batch < batch_size; batch++)
       {
          std::vector<float> input_vec {dist(gen), dist(gen)};
-         float result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? -1.f : 1.f;
+         float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
+
          input_batch.push_back({2,1,input_vec});
-         desired_batch.push_back({1,1,{result}});
+         desired_batch.push_back({1,1,{desired_result}});
       }
 
       auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
 
-      float learning_rate = 0.03f;
+      float learning_rate = 0.003f;
 
       nn.adjustWeightsAndBiases(weight_diffs, bias_diffs, learning_rate);
    }
@@ -48,20 +49,27 @@ int main()
    for (int i = 0; i < 10; i++)
    {
       std::vector<float> input_vec {dist(gen), dist(gen)};
-      float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? -1.f : 1.f;
+      float desired_result = (input_vec[0] < 0) ^ (input_vec[1] < 0) ? 0 : 1;
+      Mat true_v{1,1,{desired_result}};
       Mat result = nn.compute({2,1,input_vec});
+      
+      auto vals = result.getVals();
+      float output = vals[0] > 0.5f ? 1 : 0;
 
-      float actual = result.getVal(0,0);
+      bool correct = output == desired_result;
 
-      bool correct = (desired_result > 0 && actual > 0.5) || (desired_result < 0 && actual < -0.5);
+      float a,b;
+      a = input_vec[0] < 0 ? 0 : 1;
+      b = input_vec[1] < 0 ? 0 : 1;
 
-      std::cout << (correct ? "✔" : "✘") << ": Wanted " << desired_result << ", got " << actual << '\n';
+      float loss = true_v.binary_crossentropy_loss(result).sum() / (-1);
+      
+      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << output << ", loss " << loss << " [" << result.getVals()[0] << "]\n";
+
       total_correct += correct;
    }
 
-   std::cout << total_correct << "/" << 10 << '\n';
-
-
+   std::cout << total_correct << "/10 correct\n";
 
 
 }

@@ -7,7 +7,7 @@
 class NNet {
    public:
       enum Mode {
-         CLASSIFICATION,
+         BINARY_CLASSIFICATION,
          REGRESSION
       };
 
