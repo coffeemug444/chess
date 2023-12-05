@@ -14,14 +14,41 @@
 
 using namespace std::chrono_literals;
 
+std::vector<float> get_input_vec(int num)
+{
+   return {
+      static_cast<float>((num>>0) & 1),
+      static_cast<float>((num>>1) & 1),
+      static_cast<float>((num>>2) & 1),
+      static_cast<float>((num>>3) & 1)
+   };
+}
+
+std::vector<float> get_desired_vec(int num)
+{
+   return {
+      static_cast<float>(num == 0),
+      static_cast<float>(num == 1),
+      static_cast<float>(num == 2),
+      static_cast<float>(num == 3),
+      static_cast<float>(num == 4),
+      static_cast<float>(num == 5),
+      static_cast<float>(num == 6),
+      static_cast<float>(num == 7),
+      static_cast<float>(num == 8),
+      static_cast<float>(num == 9)
+   };
+}
+
+
 int main() 
 {
    std::random_device rd;
    std::mt19937 gen(rd());
    
-   NNet nn({2, 8, 4, 1}, 'h', NNet::BINARY_CLASSIFICATION);
+   NNet nn({4, 30, 20, 14, 10}, 'h', NNet::MULTICLASS_CLASSIFICATION);
 
-   int batch_size = 50;
+   int batch_size = 20;
 
    for (int epoch = 0; epoch < 1000; epoch++)
    {
@@ -29,14 +56,10 @@ int main()
       std::vector<Mat> desired_batch;
       for (int batch = 0; batch < batch_size; batch++)
       {
-         float a, b;
-         a = static_cast<float>(gen() % 2);
-         b = static_cast<float>(gen() % 2);
-         std::vector<float> input_vec {a,b};
-         float desired_result = (a == b) ? 0 : 1;
+         int num = gen() % 10;
 
-         input_batch.push_back({2,1,input_vec});
-         desired_batch.push_back({1,1,std::vector<float>{desired_result}});
+         input_batch.push_back({4,1,get_input_vec(num)});
+         desired_batch.push_back({10,1,get_desired_vec(num)});
       }
 
       auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
@@ -49,23 +72,26 @@ int main()
    int total_correct = 0;
    for (int i = 0; i < 10; i++)
    {
-      float a, b;
-      a = static_cast<float>(gen() % 2);
-      b = static_cast<float>(gen() % 2);
-      std::vector<float> input_vec {a,b};
-      float desired_result = (a == b) ? 0 : 1;
-      Mat true_v{1,1,std::vector<float>{desired_result}};
-      Mat result = nn.compute({2,1,input_vec});
+      int num = i;
+      Mat true_v{10,1,get_desired_vec(num)};
+      Mat result = nn.compute({4,1,get_input_vec(num)});
       
-      float output = result.getVals()[0];
+      auto results = result.getVals();
 
-      int rounded = static_cast<int>(output + 0.5f);
+      int guessed_num = 0;
+      float max_confidence = 0;
+      for (int i = 0; i < 10; i++)
+      {
+         if (results[i] > max_confidence)
+         {
+            guessed_num = i;
+            max_confidence = results[i];
+         }
+      }
 
-      bool correct = std::abs(desired_result-output) < 0.5f;
+      bool correct = num == guessed_num;
 
-      int confidence = 100*2*std::abs(output - 0.5f);
-      
-      std::cout << (correct ? "✔" : "✘") << " " << a << b << " desired: " << desired_result << ", actual " << rounded << " (" << confidence << "\% confident" << ")\n";
+      std::cout << (correct ? "✔" : "✘") <<  " desired: " << num << ", actual " << guessed_num << " (" << max_confidence << "\% confident" << ")\n";
 
       total_correct += correct;
    }
