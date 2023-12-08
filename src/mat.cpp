@@ -52,6 +52,11 @@ std::ostream& operator<<(std::ostream& out, const Mat& mat)
    return out;
 }
 
+ParallelMat operator+(const ParallelMat& l, const Mat& r)
+{
+   return r + l;
+}
+
 
 void Mat::setup() {
    if (ocl_setup) return;

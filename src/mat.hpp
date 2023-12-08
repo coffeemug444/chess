@@ -13,6 +13,7 @@ class Mat;
 
 Mat operator* (float f, const Mat& mat);
 std::ostream& operator<<(std::ostream& out, const Mat& mat);
+ParallelMat operator+(const ParallelMat& l, const Mat& r);
 
 class Mat {
 private:
