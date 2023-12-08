@@ -37,8 +37,8 @@ ParallelMat LayerRelu::updateWeightsAndBiasesGradients(const ParallelMat& preact
 void LayerRelu::applyWeightsAndBiasesGradients(float learning_rate)
 {
    float d = learning_rate / m_batch_size;
-   m_weights += d * m_weight_grads;
-   m_biases += d * m_bias_grads;
+   m_weights -= d * m_weight_grads;
+   m_biases -= d * m_bias_grads;
 
    m_weight_grads = Mat::zeros(output_size, input_size);
    m_bias_grads = Mat::zeros(output_size, 1);

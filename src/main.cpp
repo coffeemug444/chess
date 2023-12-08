@@ -49,10 +49,10 @@ int main()
    std::random_device rd;
    std::mt19937 gen(rd());
 
-   LayerRelu    layer0{4, 30, NORMAL};
-   LayerRelu    layer1{30, 20, NORMAL};
-   LayerRelu    layer2{20, 14, NORMAL};
-   LayerSigmoid layer3{14, 10, NORMAL};
+   LayerRelu    layer0{4, 30, HE};
+   LayerRelu    layer1{30, 20, HE};
+   LayerRelu    layer2{20, 14, HE};
+   LayerSigmoid layer3{14, 10, HE};
    LayerSoftmax layer4{10};
    
    NNet nn({
