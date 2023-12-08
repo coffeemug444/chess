@@ -9,6 +9,9 @@
 #include "piece.hpp"
 #include "board.hpp"
 #include "nnet.hpp"
+#include "layerRelu.hpp"
+#include "layerSigmoid.hpp"
+#include "layerSoftmax.hpp"
 
 #include <iostream>
 
@@ -45,8 +48,20 @@ int main()
 {
    std::random_device rd;
    std::mt19937 gen(rd());
+
+   LayerRelu    layer0{4, 30, NORMAL};
+   LayerRelu    layer1{30, 20, NORMAL};
+   LayerRelu    layer2{20, 14, NORMAL};
+   LayerSigmoid layer3{14, 10, NORMAL};
+   LayerSoftmax layer4{10};
    
-   NNet nn({4, 30, 20, 14, 10}, 'h', NNet::MULTICLASS_CLASSIFICATION);
+   NNet nn({
+      std::ref(layer0),
+      std::ref(layer1),
+      std::ref(layer2),
+      std::ref(layer3),
+      std::ref(layer4)
+   });
 
    int batch_size = 20;
 
@@ -62,11 +77,11 @@ int main()
          desired_batch.push_back({10,1,get_desired_vec(num)});
       }
 
-      auto [weight_diffs, bias_diffs] = nn.backPropagate(input_batch, desired_batch);
+      nn.backPropagate(input_batch, desired_batch);
 
       float learning_rate = 0.03f;
 
-      nn.adjustWeightsAndBiases(weight_diffs, bias_diffs, learning_rate);
+      nn.applyWeightsAndBiasesGradients(learning_rate);
    }
 
    int total_correct = 0;

@@ -7,8 +7,8 @@ LIBS=-lOpenCL -lsfml-graphics -lsfml-window -lsfml-system
 SRCDIR=src
 BINDIR=bin
 
-CLASSES = board piece mat nnet oclData errors parallelMat
-DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES)) 
+CLASSES = board piece mat nnet oclData errors parallelMat layerRelu layerSigmoid layerSoftmax
+DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES) layer) 
 OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES) main)
 
 $(ODIR)/%.o: $(SRCDIR)/%.cpp $(DEPS)

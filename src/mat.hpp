@@ -33,10 +33,10 @@ private:
    Mat& mat_add_sub_dot_eq_op(char op, const Mat &other);
    Mat& mat_add_sub_dot_eq(const Mat &other, cl::Kernel& kernel);
 
-   Mat(unsigned rows, unsigned cols, const cl::Buffer& buffer);
+   Mat(unsigned height, unsigned width, const cl::Buffer& buffer);
 
 public:
-   Mat(unsigned rows, unsigned cols, std::vector<float> vals);
+   Mat(unsigned height, unsigned width, const std::vector<float>& vals);
    Mat(const Mat& mat);
    Mat();
 

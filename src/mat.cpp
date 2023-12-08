@@ -73,7 +73,7 @@ Mat::Mat()
 }
 
 
-Mat::Mat(unsigned int height, unsigned int width, std::vector<float> vals)
+Mat::Mat(unsigned int height, unsigned int width, const std::vector<float>& vals)
 {
    setup();
 
@@ -187,6 +187,37 @@ Mat& Mat::mat_add_sub_dot_eq(const Mat &other, cl::Kernel &kernel) {
    try {
       kernel.setArg( 0, m_buffer );
       kernel.setArg( 1, other.m_buffer);
+      ocl_queue.enqueueNDRangeKernel( kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in mat_add_sub_dot_eq: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   
+   return *this;
+}
+
+
+const Mat& Mat::float_eq_op(char op, float val)
+{
+   const int N_ELEMENTS = m_width * m_height;
+   cl::NDRange global( N_ELEMENTS );
+
+   cl_float buffer_val = val;
+
+   try {
+
+      cl::Kernel& kernel = [&]() -> cl::Kernel& {
+         switch (op)
+         {
+            case '*': return mul_float_eq_kernel;
+            case '/': return div_float_eq_kernel;
+            default: throw new std::exception();
+         }
+      }();
+
+      kernel.setArg( 0, m_buffer );
+      kernel.setArg( 1, sizeof(cl_float), &buffer_val );
+
       ocl_queue.enqueueNDRangeKernel( kernel, cl::NullRange, global );
    }
    catch(cl::Error& err) {
@@ -453,13 +484,14 @@ Mat Mat::float_op(char op, float val) const
    cl_float buffer_val = val;
    try {
 
-   cl::Kernel kernel;
-   switch (op)
-   {
-      case '*': kernel = mul_float_kernel; break;
-      case '/': kernel = div_float_kernel; break;
-      default: throw new std::exception();
-   }
+   cl::Kernel& kernel = [&]() -> cl::Kernel& {
+      switch (op)
+      {
+         case '*': return mul_float_kernel;
+         case '/': return div_float_kernel;
+         default: throw new std::exception();
+      }
+   }();
 
    kernel.setArg( 0, m_buffer );
    kernel.setArg( 1, out_buffer );

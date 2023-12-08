@@ -4,6 +4,11 @@
 #include "mat.hpp"
 #include "parallelMat.hpp"
 
+enum InitializationMode
+{
+   HE,
+   NORMAL
+};
 
 class Layer
 {
@@ -29,11 +34,6 @@ public:
 class UpdatableLayer : public Layer
 {
 public:
-   enum InitializationMode
-   {
-      HE,
-      NORMAL
-   };
 
    UpdatableLayer(int input_size, int output_size)
    :Layer(input_size, output_size)
@@ -51,7 +51,7 @@ public:
 
    // Updates the weights and biases gradients using delta. Returns the delta to be used for
    // the previous layer. Will stay saved until `applyWeightsAndBiasesGradients` is called
-   virtual ParallelMat updateWeightsAndBiasesGradients(const ParallelMat& output, const ParallelMat& activation, const ParallelMat& delta) = 0;
+   virtual ParallelMat updateWeightsAndBiasesGradients(const ParallelMat& output_preactivation, const ParallelMat& input_activation, const ParallelMat& delta) = 0;
 
    virtual void applyWeightsAndBiasesGradients(float learning_rate) = 0;
 
@@ -61,6 +61,7 @@ public:
 
 class FullyConnected : public UpdatableLayer
 {
+public:
    FullyConnected(int input_size, int output_size, InitializationMode initialization_mode)
    :UpdatableLayer(input_size, output_size)
    ,m_weights([initialization_mode, input_size, output_size](){

@@ -5,6 +5,7 @@
 class ParallelMat
 {
 public:
+   ParallelMat ();
    ParallelMat (const std::vector<Mat>& mats);
 
    std::vector<Mat> toVector() const;

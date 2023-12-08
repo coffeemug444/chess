@@ -27,8 +27,8 @@ ParallelMat LayerSigmoid::updateWeightsAndBiasesGradients(const ParallelMat& pre
    ParallelMat this_delta = delta ^ preactivation.sigmoid_inv();
 
    auto weight_grad = (this_delta * activation.transpose()).sum();
-   m_weight_grads = m_weight_grads + weight_grad;
-   m_bias_grads = m_bias_grads + delta.sum();
+   m_weight_grads += weight_grad;
+   m_bias_grads += delta.sum();
    m_batch_size += delta.getCount();
 
    return m_weights.transpose() * this_delta;
