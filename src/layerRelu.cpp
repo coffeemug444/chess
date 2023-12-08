@@ -6,6 +6,11 @@ Mat LayerRelu::compute(const Mat& input) const
    return (m_weights * input + m_biases).relu();
 }
 
+ParallelMat LayerRelu::compute(const ParallelMat& input) const
+{
+   return (m_weights * input + m_biases).relu();
+}
+
 std::pair<ParallelMat, ParallelMat> LayerRelu::feedForward(const ParallelMat& input) const
 {
    ParallelMat pre_activation = m_weights * input + m_biases;

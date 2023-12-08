@@ -12,4 +12,8 @@ public:
    Mat compute(const Mat& input) const override {
       return input.softmax();
    }
+
+   ParallelMat compute(const ParallelMat& input) const override {
+      return input.softmax();
+   }
 };

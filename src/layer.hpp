@@ -18,6 +18,7 @@ public:
 
    // returns the final output of this layer after any activation functions
    virtual Mat compute(const Mat& input) const = 0;
+   virtual ParallelMat compute(const ParallelMat& input) const = 0;
 
    virtual bool isUpdatable() { return false; }
 
