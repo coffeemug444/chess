@@ -15,6 +15,15 @@ using std::shared_ptr, std::vector, std::make_shared, std::make_unique, std::set
 NNet::NNet(const std::vector<std::reference_wrapper<Layer>>& layers)
 :m_layers(layers)
 {
+   // validate layers
+   int sz = layers.at(0).get().output_size;
+   for (unsigned i = 1; i < layers.size(); i++)
+   {
+      Layer& layer = layers.at(i);
+      assert(layer.input_size == sz);
+      sz = layer.output_size;
+   }
+
    for (Layer& layer : layers)
    {
       if (layer.isUpdatable())
