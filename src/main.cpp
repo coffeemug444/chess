@@ -52,7 +52,7 @@ int main()
    LayerRelu    layer0{4, 30, HE};
    LayerRelu    layer1{30, 20, HE};
    LayerRelu    layer2{20, 14, HE};
-   LayerSigmoid layer3{14, 10, HE};
+   LayerRelu    layer3{14, 10, HE};
    LayerSoftmax layer4{10};
    
    NNet nn({
@@ -65,7 +65,7 @@ int main()
 
    int batch_size = 20;
 
-   for (int epoch = 0; epoch < 1000; epoch++)
+   for (int epoch = 0; epoch < 3000; epoch++)
    {
       std::vector<Mat> input_batch;
       std::vector<Mat> desired_batch;
@@ -106,7 +106,7 @@ int main()
 
       bool correct = num == guessed_num;
 
-      std::cout << (correct ? "✔" : "✘") <<  " desired: " << num << ", actual " << guessed_num << " (" << max_confidence << "\% confident" << ")\n";
+      std::cout << (correct ? "✔" : "✘") <<  " desired: " << num << ", actual " << guessed_num << " (" << static_cast<int>(100*max_confidence) << "\% confident" << ")\n";
 
       total_correct += correct;
    }

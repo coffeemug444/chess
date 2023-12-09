@@ -211,6 +211,8 @@ const Mat& Mat::float_eq_op(char op, float val)
          {
             case '*': return mul_float_eq_kernel;
             case '/': return div_float_eq_kernel;
+            case '+': return add_float_eq_kernel;
+            case '-': return sub_float_eq_kernel;
             default: throw new std::exception();
          }
       }();
@@ -489,6 +491,8 @@ Mat Mat::float_op(char op, float val) const
       {
          case '*': return mul_float_kernel;
          case '/': return div_float_kernel;
+         case '+': return add_float_kernel;
+         case '-': return sub_float_kernel;
          default: throw new std::exception();
       }
    }();

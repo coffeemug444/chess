@@ -50,6 +50,8 @@ public:
    Mat operator^ (const Mat &other) const { return mat_add_sub_dot_op('^', other); };
 
    Mat operator/ (float other) const { return float_op('/', other); };
+   Mat operator+ (float other) const { return float_op('+', other); };
+   Mat operator- (float other) const { return float_op('-', other); };
    friend Mat operator* (float f, const Mat& mat);
 
    const Mat& operator*= (const Mat &other);
@@ -58,6 +60,8 @@ public:
    const Mat& operator^= (const Mat &other) { return mat_add_sub_dot_eq_op('^', other); };
    const Mat& operator*= (float other) { return float_eq_op('*', other); };
    const Mat& operator/= (float other) { return float_eq_op('/', other); };
+   const Mat& operator+= (float other) { return float_eq_op('+', other); };
+   const Mat& operator-= (float other) { return float_eq_op('-', other); };
 
    const Mat& operator= (const Mat &other);
    const Mat& operator= (const Mat &&other);

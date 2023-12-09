@@ -7,7 +7,7 @@ LIBS=-lOpenCL -lsfml-graphics -lsfml-window -lsfml-system
 SRCDIR=src
 BINDIR=bin
 
-CLASSES = board piece mat nnet oclData errors parallelMat layerRelu layerSigmoid layerSoftmax layerBinaryOutput
+CLASSES = board piece mat nnet oclData errors parallelMat layerRelu layerSigmoid layerSoftmax layerBinaryOutput layerBatchNormalize
 DEPS = $(patsubst %,$(SRCDIR)/%.hpp,$(CLASSES) layer) 
 OBJ = $(patsubst %,$(ODIR)/%.o,$(CLASSES) main)
 
