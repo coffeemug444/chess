@@ -13,7 +13,10 @@ public:
    ConvKernel (int channels,
                int kernel_height,
                int kernel_width,
-               Padding padding);
+               Padding padding,
+               int filters,
+               int input_height,
+               int input_width);
 
    ParallelMat operator* (const ParallelMat &other) const;
    Mat operator* (const Mat &other) const;
@@ -24,6 +27,9 @@ private:
    int m_height;
    int m_width;
    Padding m_padding;
+   int m_filters;
+   int m_input_height;
+   int m_input_width;
 
    friend Mat;
 };

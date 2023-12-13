@@ -5,14 +5,22 @@ kernel void convolution( global float* CONVKERNEL,
                          int convkernel_h,
                          int input_w,
                          int input_h,
+                         int channels,
+                         int filters,
                          int output_w,
+                         int output_h,
                          int u_padding,
                          int l_padding)
 {
     const int idx = get_global_id(0);
 
-    int out_row = idx / output_w;
-    int out_col = idx % output_w;
+    int kernel_elements = convkernel_w*convkernel_h;
+    int output_elements = output_w*output_h*filters;
+
+    int filter = idx / output_elements;
+
+    int out_row = (idx % (output_w*output_h)) / output_h;
+    int out_col = (idx % (output_w*output_h)) % output_w;
     
     float total = 0;
 
@@ -32,10 +40,13 @@ kernel void convolution( global float* CONVKERNEL,
             if (input_col < 0) continue;
             if (input_col >= input_w) continue;
 
-            int conv_idx = convkernel_w * conv_row + conv_col;
-            int input_idx = input_row * input_w + input_col;
+            for (int channel = 0; channel < channels; channel++)
+            {
+                int conv_idx = (kernel_elements * filter) + (convkernel_w * convkernel_h * channel) + (convkernel_w * conv_row) + conv_col;
+                int input_idx = (input_w * input_h * channel) + (input_row * input_w) + input_col;
+                total += CONVKERNEL[conv_idx] * INPUT[input_idx];
+            }
 
-            total += CONVKERNEL[conv_idx] * INPUT[input_idx];
         }
     }
 
