@@ -3,8 +3,8 @@
 
 enum Padding
 {
-   SAME,
-   NONE
+   VALID = 0,  // no padding
+   SAME = 1    // output has same dimensions as input
 };
 
 class ConvKernel
@@ -20,6 +20,10 @@ public:
 
 private:
    cl::Buffer m_buffer;
+   int m_channels;
+   int m_height;
+   int m_width;
+   Padding m_padding;
 
    friend Mat;
 };

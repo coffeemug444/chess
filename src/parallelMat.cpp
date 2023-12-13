@@ -10,6 +10,8 @@ ParallelMat::ParallelMat()
    m_buffer = cl::Buffer(ocl_context, CL_MEM_READ_WRITE, 0);
 }
 
+
+
 ParallelMat::ParallelMat(const std::vector<Mat>& mats)
 {
    m_width = mats[0].getWidth();

@@ -10,6 +10,7 @@
 
 class ParallelMat;
 class Mat;
+class ConvKernel;
 
 Mat operator* (float f, const Mat& mat);
 std::ostream& operator<<(std::ostream& out, const Mat& mat);
@@ -104,5 +105,6 @@ public:
    static Mat he(unsigned height, unsigned width);
 
    friend ParallelMat;
+   friend ConvKernel;
 };
 

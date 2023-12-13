@@ -37,5 +37,7 @@ extern cl::Kernel binary_CEL_kernel;
 extern cl::Kernel binary_CEL_derivative_kernel;
 extern cl::Kernel log_kernel;
 extern cl::Kernel exp_kernel;
+extern cl::Kernel convolution_kernel;
+extern cl::Kernel parallel_convolution_kernel;
 
 void ocl_init();

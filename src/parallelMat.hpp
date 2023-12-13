@@ -1,6 +1,7 @@
 #pragma once
 #include "mat.hpp"
 
+class ConvKernel;
 
 class ParallelMat
 {
@@ -54,4 +55,5 @@ private:
    ParallelMat mat_add_sub_dot(const ParallelMat &other, cl::Kernel& kernel) const;
 
    friend Mat;
+   friend ConvKernel;
 };
