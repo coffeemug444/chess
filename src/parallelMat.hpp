@@ -37,7 +37,7 @@ public:
    unsigned getCount() const { return m_count; }
 
 private:
-   ParallelMat(cl::Buffer& buffer, unsigned height, unsigned width, unsigned count)
+   ParallelMat( unsigned height, unsigned width, unsigned count, cl::Buffer& buffer )
       :m_buffer{buffer}
       ,m_height{height}
       ,m_width{width}

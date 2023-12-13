@@ -76,7 +76,7 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
    catch(cl::Error& err) {
       std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, 1, output_w*output_h*filters, other.m_count);
+   return ParallelMat(output_w*output_h*filters, 1, other.m_count, out_buffer);
 }
 
 Mat ConvKernel::operator* (const Mat &other) const

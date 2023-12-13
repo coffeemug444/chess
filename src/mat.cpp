@@ -599,7 +599,7 @@ ParallelMat Mat::operator* (const ParallelMat &other) const
       std::cout << "Error in multipleMultiply: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
 
-   return ParallelMat(out_buffer, m_height, other.m_width, other.m_count);
+   return ParallelMat(m_height, other.m_width, other.m_count, out_buffer);
 }
 
 std::vector<float> Mat::getVals() const {
@@ -630,7 +630,7 @@ ParallelMat Mat::operator+ (const ParallelMat &other) const
    catch(cl::Error& err) {
       std::cout << "Error in multipleAdd: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, other.m_count);
+   return ParallelMat(m_height, m_width, other.m_count, out_buffer);
 }
 
 ParallelMat Mat::operator^ (const ParallelMat &other) const
@@ -652,7 +652,7 @@ ParallelMat Mat::operator^ (const ParallelMat &other) const
    catch(cl::Error& err) {
       std::cout << "Error in multipleAdd: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, other.m_count);
+   return ParallelMat(m_height, m_width, other.m_count, out_buffer);
 }
 
 Mat Mat::transpose() const

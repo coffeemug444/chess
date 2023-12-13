@@ -97,7 +97,7 @@ ParallelMat ParallelMat::operator* (const ParallelMat &other) const
       std::cout << "Error in parallelMultiply: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
 
-   return ParallelMat(out_buffer, A_h, other.m_width, m_count);
+   return ParallelMat(A_h, other.m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::transpose() const
@@ -121,7 +121,7 @@ ParallelMat ParallelMat::transpose() const
       std::cout << "Error in parallelTranspose: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
 
-   return ParallelMat(out_buffer, m_width, m_height, m_count); // W & H are swapped because of the transpose
+   return ParallelMat(m_width, m_height, m_count, out_buffer); // W & H are swapped because of the transpose
 }
 
 ParallelMat ParallelMat::mat_add_sub_dot_op(char op, const ParallelMat &other) const
@@ -151,7 +151,7 @@ ParallelMat ParallelMat::mat_add_sub_dot(const ParallelMat &other, cl::Kernel& k
    catch(cl::Error& err) {
       std::cout << "Error in mat_add_sub_dot: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::relu() const
@@ -167,7 +167,7 @@ ParallelMat ParallelMat::relu() const
    catch(cl::Error& err) {
       std::cout << "Error in relu: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::relu_inv() const
@@ -183,7 +183,7 @@ ParallelMat ParallelMat::relu_inv() const
    catch(cl::Error& err) {
       std::cout << "Error in relu_inv: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::sigmoid() const
@@ -199,7 +199,7 @@ ParallelMat ParallelMat::sigmoid() const
    catch(cl::Error& err) {
       std::cout << "Error in sigmoid: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::sigmoid_inv() const
@@ -215,7 +215,7 @@ ParallelMat ParallelMat::sigmoid_inv() const
    catch(cl::Error& err) {
       std::cout << "Error in sigmoid_inv: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::softmax() const
@@ -242,7 +242,7 @@ ParallelMat ParallelMat::binary_crossentropy_loss(const ParallelMat& prediction)
    catch(cl::Error& err) {
       std::cout << "Error in binary_crossentropy_loss: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
 
 ParallelMat ParallelMat::binary_crossentropy_loss_derivative(const ParallelMat& prediction)  const
@@ -259,5 +259,5 @@ ParallelMat ParallelMat::binary_crossentropy_loss_derivative(const ParallelMat& 
    catch(cl::Error& err) {
       std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
-   return ParallelMat(out_buffer, m_height, m_width, m_count);
+   return ParallelMat(m_height, m_width, m_count, out_buffer);
 }
