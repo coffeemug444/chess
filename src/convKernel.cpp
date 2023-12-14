@@ -51,24 +51,14 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
    cl_int input_h = m_input_height;
    cl_int channels = m_channels;
    cl_int filters = m_filters;
-   cl_int output_h;
-   cl_int output_w;
-   cl_int u_padding;
-   cl_int l_padding;
+   auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
+   cl_int u_padding = 0;
+   cl_int l_padding = 0;
 
    if (m_padding == SAME)
    {
-      output_h = input_h;
-      output_w = input_w;
       l_padding = convkernel_w / 2; // r_padding = (convkernel_w - 1) - l_padding
       u_padding = convkernel_h / 2; // d_padding = (convkernel_h - 1) - u_padding
-   }
-   else
-   {
-      output_h = input_h - convkernel_h + 1;
-      output_w = input_w - convkernel_w + 1;
-      u_padding = 0;
-      l_padding = 0;
    }
 
    int N_ELEMENTS = output_h*output_w*filters*other.m_count;
@@ -85,8 +75,8 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
       parallel_convolution_kernel.setArg( 6,  input_h );
       parallel_convolution_kernel.setArg( 7,  channels );
       parallel_convolution_kernel.setArg( 8,  filters );
-      parallel_convolution_kernel.setArg( 9,  output_w );
-      parallel_convolution_kernel.setArg( 10, output_h );
+      parallel_convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
+      parallel_convolution_kernel.setArg( 10, static_cast<cl_int>(output_h));
       parallel_convolution_kernel.setArg( 11, u_padding );
       parallel_convolution_kernel.setArg( 12, l_padding );
 
@@ -106,24 +96,14 @@ Mat ConvKernel::operator* (const Mat &other) const
    cl_int input_h = m_input_height;    // input is a Nx1 column
    cl_int channels = m_channels;
    cl_int filters = m_filters;
-   cl_int output_h;
-   cl_int output_w;
-   cl_int u_padding;
-   cl_int l_padding;
+   auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
+   cl_int u_padding = 0;
+   cl_int l_padding = 0;
 
    if (m_padding == SAME)
    {
-      output_h = input_h;
-      output_w = input_w;
       l_padding = convkernel_w / 2; // r_padding = (convkernel_w - 1) - l_padding
       u_padding = convkernel_h / 2; // d_padding = (convkernel_h - 1) - u_padding
-   }
-   else
-   {
-      output_h = input_h - convkernel_h + 1;
-      output_w = input_w - convkernel_w + 1;
-      u_padding = 0;
-      l_padding = 0;
    }
 
    int N_ELEMENTS = output_h*output_w*m_filters;
@@ -140,8 +120,8 @@ Mat ConvKernel::operator* (const Mat &other) const
       convolution_kernel.setArg( 6,  input_h );
       convolution_kernel.setArg( 7,  channels );
       convolution_kernel.setArg( 8,  filters );
-      convolution_kernel.setArg( 9,  output_w );
-      convolution_kernel.setArg( 10, output_h );
+      convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
+      convolution_kernel.setArg( 10, static_cast<cl_int>(output_h));
       convolution_kernel.setArg( 11, u_padding );
       convolution_kernel.setArg( 12, l_padding );
 

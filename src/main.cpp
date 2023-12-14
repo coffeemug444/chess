@@ -9,8 +9,7 @@
 #include "piece.hpp"
 #include "board.hpp"
 #include "nnet.hpp"
-#include "layerRelu.hpp"
-#include "layerSigmoid.hpp"
+#include "layerFullyConnected.hpp"
 #include "layerSoftmax.hpp"
 
 #include <iostream>
@@ -49,18 +48,18 @@ int main()
    std::random_device rd;
    std::mt19937 gen(rd());
 
-   LayerRelu    layer0{4, 30, HE};
-   LayerRelu    layer1{30, 20, HE};
-   LayerRelu    layer2{20, 14, HE};
-   LayerRelu    layer3{14, 10, HE};
-   LayerSoftmax layer4{10};
+   LayerFullyConnected layer0{4,  30, HE, RELU};
+   LayerFullyConnected layer1{30, 20, HE, RELU};
+   LayerFullyConnected layer2{20, 14, HE, RELU};
+   LayerFullyConnected layer3{14, 10, HE, RELU};
+   LayerSoftmax        layer4{10};
    
    NNet nn({
-      std::ref(layer0),
-      std::ref(layer1),
-      std::ref(layer2),
-      std::ref(layer3),
-      std::ref(layer4)
+      layer0,
+      layer1,
+      layer2,
+      layer3,
+      layer4
    });
 
    int batch_size = 20;

@@ -10,6 +10,12 @@ enum InitializationMode
    NORMAL
 };
 
+enum ActivationFunction
+{
+   RELU,
+   SIGMOID
+};
+
 class Layer
 {
 public:
@@ -35,8 +41,9 @@ class UpdatableLayer : public Layer
 {
 public:
 
-   UpdatableLayer(int input_size, int output_size)
+   UpdatableLayer(int input_size, int output_size, ActivationFunction activation_function)
    :Layer(input_size, output_size)
+   ,m_activation_function{activation_function}
    {}
 
 
@@ -56,37 +63,8 @@ public:
    virtual void applyWeightsAndBiasesGradients(float learning_rate) = 0;
 
    bool isUpdatable() override { return true; }
-};
-
-
-class FullyConnected : public UpdatableLayer
-{
-public:
-   FullyConnected(int input_size, int output_size, InitializationMode initialization_mode)
-   :UpdatableLayer(input_size, output_size)
-   ,m_weights([initialization_mode, input_size, output_size](){
-      switch (initialization_mode)
-      {
-      case HE:
-         return Mat::he(output_size, input_size);
-      case NORMAL:
-         return Mat::random(output_size, input_size);
-      default:
-         return Mat::zeros(output_size, input_size);
-      }
-   }())
-   ,m_biases(Mat::zeros(output_size, 1))
-   ,m_weight_grads(Mat::zeros(output_size, input_size))
-   ,m_bias_grads(Mat::zeros(output_size, 1))
-   ,m_batch_size{0}
-   {
-   }
 
 protected:
-   Mat m_weights;
-   Mat m_biases;
-
-   Mat m_weight_grads;
-   Mat m_bias_grads;
-   int m_batch_size;
+   ActivationFunction m_activation_function;
 };
+
