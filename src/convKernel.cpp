@@ -12,7 +12,8 @@ ConvKernel::ConvKernel (int channels,
                         Padding padding,
                         int filters,
                         int input_height,
-                        int input_width)
+                        int input_width,
+                        const Mat& vals)
    :m_channels{channels}
    ,m_height{kernel_height}
    ,m_width{kernel_width}
@@ -21,7 +22,11 @@ ConvKernel::ConvKernel (int channels,
    ,m_input_height{input_height}
    ,m_input_width{input_width}
 {
-   
+   assert(vals.getWidth() == 1);
+   assert(vals.getHeight() == kernel_height*kernel_width*filters);
+
+   m_buffer = cl::Buffer(ocl_context, CL_MEM_READ_WRITE, (kernel_height*kernel_width*filters)*sizeof(float));
+   ocl_queue.enqueueCopyBuffer(vals.m_buffer, m_buffer, 0, 0, (kernel_height*kernel_width*filters)*sizeof(float));
 }
 
 ParallelMat ConvKernel::operator* (const ParallelMat &other) const

@@ -16,7 +16,8 @@ public:
                Padding padding,
                int filters,
                int input_height,
-               int input_width);
+               int input_width,
+               const Mat& vals);
 
    ParallelMat operator* (const ParallelMat &other) const;
    Mat operator* (const Mat &other) const;
