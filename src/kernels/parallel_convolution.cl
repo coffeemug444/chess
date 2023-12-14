@@ -46,7 +46,7 @@ kernel void parallel_convolution( global float* CONVKERNEL,
 
             for (int channel = 0; channel < channels; channel++)
             {
-                int conv_idx = (kernel_elements * filter) + (convkernel_w * convkernel_h * channel) + (convkernel_w * conv_row) + conv_col;
+                int conv_idx = (kernel_elements * filter) + (convkernel_w * conv_row) + conv_col;
                 int input_idx = (total_input_elements * out_num) + (input_w * input_h * channel) + (input_row * input_w) + input_col;
                 total += CONVKERNEL[conv_idx] * INPUT[input_idx];
             }
