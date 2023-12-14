@@ -15,12 +15,12 @@ kernel void convolution( global float* CONVKERNEL,
     const int idx = get_global_id(0);
 
     int kernel_elements = convkernel_w*convkernel_h;
-    int output_elements = output_w*output_h*filters;
+    int output_elements = output_w*output_h;
 
     int filter = idx / output_elements;
 
-    int out_row = (idx % (output_w*output_h)) / output_h;
-    int out_col = (idx % (output_w*output_h)) % output_w;
+    int out_row = (idx % output_elements) / output_h;
+    int out_col = (idx % output_elements) % output_w;
     
     float total = 0;
 

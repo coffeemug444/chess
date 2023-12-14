@@ -71,26 +71,26 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
       l_padding = 0;
    }
 
-   int N_ELEMENTS = output_h*output_w*other.m_count;
+   int N_ELEMENTS = output_h*output_w*filters*other.m_count;
    cl::NDRange global( N_ELEMENTS );
    cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
        
    try {
-      convolution_kernel.setArg( 0,  m_buffer );
-      convolution_kernel.setArg( 1,  other.m_buffer);
-      convolution_kernel.setArg( 2,  out_buffer );
-      convolution_kernel.setArg( 3,  convkernel_w );
-      convolution_kernel.setArg( 4,  convkernel_h );
-      convolution_kernel.setArg( 5,  input_w );
-      convolution_kernel.setArg( 6,  input_h );
-      convolution_kernel.setArg( 7,  channels );
-      convolution_kernel.setArg( 8,  filters );
-      convolution_kernel.setArg( 9,  output_w );
-      convolution_kernel.setArg( 10, output_h );
-      convolution_kernel.setArg( 11, u_padding );
-      convolution_kernel.setArg( 12, l_padding );
+      parallel_convolution_kernel.setArg( 0,  m_buffer );
+      parallel_convolution_kernel.setArg( 1,  other.m_buffer);
+      parallel_convolution_kernel.setArg( 2,  out_buffer );
+      parallel_convolution_kernel.setArg( 3,  convkernel_w );
+      parallel_convolution_kernel.setArg( 4,  convkernel_h );
+      parallel_convolution_kernel.setArg( 5,  input_w );
+      parallel_convolution_kernel.setArg( 6,  input_h );
+      parallel_convolution_kernel.setArg( 7,  channels );
+      parallel_convolution_kernel.setArg( 8,  filters );
+      parallel_convolution_kernel.setArg( 9,  output_w );
+      parallel_convolution_kernel.setArg( 10, output_h );
+      parallel_convolution_kernel.setArg( 11, u_padding );
+      parallel_convolution_kernel.setArg( 12, l_padding );
 
-      ocl_queue.enqueueNDRangeKernel( convolution_kernel, cl::NullRange, global );
+      ocl_queue.enqueueNDRangeKernel( parallel_convolution_kernel, cl::NullRange, global );
    }
    catch(cl::Error& err) {
       std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
