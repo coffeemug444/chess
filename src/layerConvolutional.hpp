@@ -11,7 +11,11 @@ public:
                       int channels,
                       int kernel_height,
                       int kernel_width,
-                      Padding padding);
+                      int kernel_filters,
+                      Padding padding,
+                      InitializationMode initialization_mode);
 
-
+private:
+   ConvKernel m_weights;
+   Mat m_biases;
 };

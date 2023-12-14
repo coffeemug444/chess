@@ -6,13 +6,13 @@
 #include "errors.hpp"
 
 
-ConvKernel::ConvKernel (int channels,
-                        int kernel_height,
-                        int kernel_width,
+ConvKernel::ConvKernel (unsigned channels,
+                        unsigned kernel_height,
+                        unsigned kernel_width,
+                        unsigned filters,
                         Padding padding,
-                        int filters,
-                        int input_height,
-                        int input_width,
+                        unsigned input_height,
+                        unsigned input_width,
                         const Mat& vals)
    :m_channels{channels}
    ,m_height{kernel_height}
@@ -27,6 +27,20 @@ ConvKernel::ConvKernel (int channels,
 
    m_buffer = cl::Buffer(ocl_context, CL_MEM_READ_WRITE, (kernel_height*kernel_width*filters)*sizeof(float));
    ocl_queue.enqueueCopyBuffer(vals.m_buffer, m_buffer, 0, 0, (kernel_height*kernel_width*filters)*sizeof(float));
+}
+
+std::pair<unsigned,unsigned> ConvKernel::getOutputHeightWidth(
+            unsigned kernel_height,
+            unsigned kernel_width,
+            Padding padding,
+            unsigned input_height,
+            unsigned input_width)
+{
+   if (padding == SAME) return {input_height, input_width};
+
+   unsigned output_h = input_height - kernel_height + 1;
+   unsigned output_w = input_width - kernel_width + 1;
+   return {output_h, output_w};
 }
 
 ParallelMat ConvKernel::operator* (const ParallelMat &other) const

@@ -10,27 +10,34 @@ enum Padding
 class ConvKernel
 {
 public:
-   ConvKernel (int channels,
-               int kernel_height,
-               int kernel_width,
+   ConvKernel (unsigned channels,
+               unsigned kernel_height,
+               unsigned kernel_width,
+               unsigned filters,
                Padding padding,
-               int filters,
-               int input_height,
-               int input_width,
+               unsigned input_height,
+               unsigned input_width,
                const Mat& vals);
+
+   static std::pair<unsigned,unsigned> getOutputHeightWidth(
+               unsigned kernel_height,
+               unsigned kernel_width,
+               Padding padding,
+               unsigned input_height,
+               unsigned input_width);
 
    ParallelMat operator* (const ParallelMat &other) const;
    Mat operator* (const Mat &other) const;
 
 private:
    cl::Buffer m_buffer;
-   int m_channels;
-   int m_height;
-   int m_width;
+   unsigned m_channels;
+   unsigned m_height;
+   unsigned m_width;
    Padding m_padding;
-   int m_filters;
-   int m_input_height;
-   int m_input_width;
+   unsigned m_filters;
+   unsigned m_input_height;
+   unsigned m_input_width;
 
    friend Mat;
 };
