@@ -29,6 +29,26 @@ ConvKernel::ConvKernel (unsigned channels,
    ocl_queue.enqueueCopyBuffer(vals.m_buffer, m_buffer, 0, 0, (kernel_height*kernel_width*filters)*sizeof(float));
 }
 
+ConvKernel::ConvKernel (unsigned channels,
+                        unsigned kernel_height,
+                        unsigned kernel_width,
+                        unsigned filters,
+                        Padding padding,
+                        unsigned input_height,
+                        unsigned input_width,
+                        const cl::Buffer& vals)
+   :m_channels{channels}
+   ,m_height{kernel_height}
+   ,m_width{kernel_width}
+   ,m_padding{padding}
+   ,m_filters{filters}
+   ,m_input_height{input_height}
+   ,m_input_width{input_width}
+{
+   m_buffer = cl::Buffer(ocl_context, CL_MEM_READ_WRITE, (kernel_height*kernel_width*filters)*sizeof(float));
+   ocl_queue.enqueueCopyBuffer(vals, m_buffer, 0, 0, (kernel_height*kernel_width*filters)*sizeof(float));
+}
+
 std::pair<unsigned,unsigned> ConvKernel::getOutputHeightWidth(
             unsigned kernel_height,
             unsigned kernel_width,
@@ -43,6 +63,25 @@ std::pair<unsigned,unsigned> ConvKernel::getOutputHeightWidth(
    return {output_h, output_w};
 }
 
+std::pair<unsigned,unsigned> ConvKernel::getPaddedHeightWidth(
+            unsigned kernel_height,
+            unsigned kernel_width,
+            Padding padding,
+            unsigned input_height,
+            unsigned input_width)
+{
+   if (padding == VALID) return {input_height, input_width};
+
+   unsigned l_padding = kernel_width / 2;
+   unsigned r_padding = (kernel_width - 1) - l_padding;
+   unsigned u_padding = kernel_height / 2;
+   unsigned d_padding = (kernel_height - 1) - u_padding;
+
+   unsigned padded_w = l_padding + r_padding + input_width;
+   unsigned padded_h = u_padding + d_padding + input_height;
+   return {padded_h, padded_w};
+}
+
 ParallelMat ConvKernel::operator* (const ParallelMat &other) const
 {
    cl_int convkernel_w = m_width;
@@ -52,17 +91,10 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
    cl_int channels = m_channels;
    cl_int filters = m_filters;
    auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
-   cl_int u_padding = 0;
-   cl_int l_padding = 0;
-
-   if (m_padding == SAME)
-   {
-      l_padding = convkernel_w / 2; // r_padding = (convkernel_w - 1) - l_padding
-      u_padding = convkernel_h / 2; // d_padding = (convkernel_h - 1) - u_padding
-   }
 
    int N_ELEMENTS = output_h*output_w*filters*other.m_count;
    cl::NDRange global( N_ELEMENTS );
+   cl::Buffer in_buffer = parallelPad(other.m_buffer, other.getCount());
    cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
        
    try {
@@ -77,13 +109,11 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
       parallel_convolution_kernel.setArg( 8,  filters );
       parallel_convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
       parallel_convolution_kernel.setArg( 10, static_cast<cl_int>(output_h));
-      parallel_convolution_kernel.setArg( 11, u_padding );
-      parallel_convolution_kernel.setArg( 12, l_padding );
 
       ocl_queue.enqueueNDRangeKernel( parallel_convolution_kernel, cl::NullRange, global );
    }
    catch(cl::Error& err) {
-      std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+      std::cout << "Error in convKernel parallel convolution: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
    return ParallelMat(output_w*output_h*filters, 1, other.m_count, out_buffer);
 }
@@ -97,22 +127,15 @@ Mat ConvKernel::operator* (const Mat &other) const
    cl_int channels = m_channels;
    cl_int filters = m_filters;
    auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
-   cl_int u_padding = 0;
-   cl_int l_padding = 0;
-
-   if (m_padding == SAME)
-   {
-      l_padding = convkernel_w / 2; // r_padding = (convkernel_w - 1) - l_padding
-      u_padding = convkernel_h / 2; // d_padding = (convkernel_h - 1) - u_padding
-   }
 
    int N_ELEMENTS = output_h*output_w*m_filters;
    cl::NDRange global( N_ELEMENTS );
+   cl::Buffer in_buffer = pad(other.m_buffer);
    cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
        
    try {
       convolution_kernel.setArg( 0,  m_buffer );
-      convolution_kernel.setArg( 1,  other.m_buffer);
+      convolution_kernel.setArg( 1,  in_buffer);
       convolution_kernel.setArg( 2,  out_buffer );
       convolution_kernel.setArg( 3,  convkernel_w );
       convolution_kernel.setArg( 4,  convkernel_h );
@@ -122,14 +145,124 @@ Mat ConvKernel::operator* (const Mat &other) const
       convolution_kernel.setArg( 8,  filters );
       convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
       convolution_kernel.setArg( 10, static_cast<cl_int>(output_h));
-      convolution_kernel.setArg( 11, u_padding );
-      convolution_kernel.setArg( 12, l_padding );
 
       ocl_queue.enqueueNDRangeKernel( convolution_kernel, cl::NullRange, global );
    }
    catch(cl::Error& err) {
-      std::cout << "Error in binary_crossentropy_loss_derivative: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+      std::cout << "Error in convKernel convolution: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
    }
    return Mat(output_w*output_h*filters, 1, out_buffer);
 }
 
+cl::Buffer ConvKernel::pad(const cl::Buffer& input) const
+{  
+   if (m_padding == VALID) return input;
+
+   cl_int l_padding = m_width / 2;
+   cl_int r_padding = (m_width - 1) - l_padding;
+   cl_int u_padding = m_height / 2;
+   cl_int d_padding = (m_height - 1) - u_padding;
+
+   cl_int padded_w = l_padding + r_padding + m_input_width;
+   cl_int padded_h = u_padding + d_padding + m_input_height;
+
+   cl_int input_width = m_input_width;
+   cl_int input_height = m_input_height;
+
+   cl_int channels = m_channels;
+
+   int N_ELEMENTS = padded_w*padded_h*m_channels;
+   cl::NDRange global( N_ELEMENTS );
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+
+   try {
+      pad_kernel.setArg( 0,  input );
+      pad_kernel.setArg( 1,  out_buffer);
+      pad_kernel.setArg( 2,  input_width );
+      pad_kernel.setArg( 3,  input_height );
+      pad_kernel.setArg( 4,  channels );
+      pad_kernel.setArg( 5,  l_padding );
+      pad_kernel.setArg( 6,  r_padding );
+      pad_kernel.setArg( 7,  u_padding );
+      pad_kernel.setArg( 8,  d_padding );
+
+      ocl_queue.enqueueNDRangeKernel( pad_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in convKernel pad: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+
+   return out_buffer;
+}
+
+cl::Buffer ConvKernel::parallelPad(const cl::Buffer& input, int num) const
+{  
+   if (m_padding == VALID) return input;
+
+   cl_int l_padding = m_width / 2;
+   cl_int r_padding = (m_width - 1) - l_padding;
+   cl_int u_padding = m_height / 2;
+   cl_int d_padding = (m_height - 1) - u_padding;
+
+   cl_int padded_w = l_padding + r_padding + m_input_width;
+   cl_int padded_h = u_padding + d_padding + m_input_height;
+
+   cl_int input_width = m_input_width;
+   cl_int input_height = m_input_height;
+
+   cl_int channels = m_channels;
+
+   int N_ELEMENTS = padded_w*padded_h*m_channels*num;
+   cl::NDRange global( N_ELEMENTS );
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+
+   try {
+      parallel_pad_kernel.setArg( 0,  input );
+      parallel_pad_kernel.setArg( 1,  out_buffer);
+      parallel_pad_kernel.setArg( 2,  input_width );
+      parallel_pad_kernel.setArg( 3,  input_height );
+      parallel_pad_kernel.setArg( 4,  channels );
+      parallel_pad_kernel.setArg( 5,  l_padding );
+      parallel_pad_kernel.setArg( 6,  r_padding );
+      parallel_pad_kernel.setArg( 7,  u_padding );
+      parallel_pad_kernel.setArg( 8,  d_padding );
+
+      ocl_queue.enqueueNDRangeKernel( parallel_pad_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in convKernel parallel pad: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+
+   return out_buffer;
+}
+
+ConvKernel ConvKernel::rotated() const
+{
+   int N_ELEMENTS = m_width*m_height*m_filters;
+   cl::NDRange global( N_ELEMENTS );
+   cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+
+   cl_int width = m_width;
+   cl_int height = m_height;
+
+   try {
+      rotate_conv_kernel.setArg( 0,  m_buffer );
+      rotate_conv_kernel.setArg( 1,  out_buffer);
+      rotate_conv_kernel.setArg( 2,  width );
+      rotate_conv_kernel.setArg( 3,  height );
+
+      ocl_queue.enqueueNDRangeKernel( rotate_conv_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in convKernel rotated: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+
+   return ConvKernel(m_channels,
+                     m_height,
+                     m_width,
+                     m_filters,
+                     m_padding,
+                     m_input_height,
+                     m_input_width,
+                     out_buffer);
+}

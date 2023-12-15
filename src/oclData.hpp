@@ -39,5 +39,8 @@ extern cl::Kernel log_kernel;
 extern cl::Kernel exp_kernel;
 extern cl::Kernel convolution_kernel;
 extern cl::Kernel parallel_convolution_kernel;
+extern cl::Kernel rotate_conv_kernel;
+extern cl::Kernel pad_kernel;
+extern cl::Kernel parallel_pad_kernel;
 
 void ocl_init();

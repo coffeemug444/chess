@@ -8,14 +8,13 @@ kernel void convolution( global float* CONVKERNEL,
                          int channels,
                          int filters,
                          int output_w,
-                         int output_h,
-                         int u_padding,
-                         int l_padding)
+                         int output_h)
 {
     const int idx = get_global_id(0);
 
     int kernel_elements = convkernel_w*convkernel_h;
     int output_elements = output_w*output_h;
+    int channel_elements = input_w*input_h;
 
     int filter = idx / output_elements;
 
@@ -26,25 +25,16 @@ kernel void convolution( global float* CONVKERNEL,
 
     for (int conv_row = 0; conv_row < convkernel_h; conv_row++)
     {
-        int input_row = out_row - u_padding + conv_row;
-
-        // if this kernel position is going to be outside the input
-        // space then we don't add anything to the total
-        if (input_row < 0) continue;
-        if (input_row >= input_h) continue;
-
+        int input_row = out_row + conv_row;
         for (int conv_col = 0; conv_col < convkernel_w; conv_col++)
         {
-            int input_col = out_col - l_padding + conv_col;
-
-            if (input_col < 0) continue;
-            if (input_col >= input_w) continue;
+            int input_col = out_col + conv_col;
 
             for (int channel = 0; channel < channels; channel++)
             {
-                int conv_idx = (kernel_elements * filter) + (convkernel_w * conv_row) + conv_col;
-                int input_idx = (input_w * input_h * channel) + (input_row * input_w) + input_col;
-                total += CONVKERNEL[conv_idx] * INPUT[input_idx];
+                float kernel_val = CONVKERNEL[filter*kernel_elements + conv_row*convkernel_w + conv_col];
+                float input_val = INPUT[channel*channel_elements + input_row*input_w + input_col];
+                total += kernel_val*input_val;
             }
 
         }
