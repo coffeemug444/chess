@@ -17,8 +17,8 @@ kernel void pad( global float* INPUT,
    int input_channel_elements = input_width*input_height;
    int channel = idx / output_channel_elements;
 
-   int row = (idx%output_channel_elements) / output_width - lpad;
-   int col = (idx%output_channel_elements) % output_width - upad;
+   int row = (idx%output_channel_elements) / output_width - upad;
+   int col = (idx%output_channel_elements) % output_width - lpad;
 
    bool out_of_bounds = (row < 0 || row >= input_height) || 
                         (col < 0 || col >= input_width);
