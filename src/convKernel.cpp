@@ -86,25 +86,24 @@ ParallelMat ConvKernel::operator* (const ParallelMat &other) const
 {
    cl_int convkernel_w = m_width;
    cl_int convkernel_h = m_height;
-   cl_int input_w = m_input_width;
-   cl_int input_h = m_input_height;
    cl_int channels = m_channels;
    cl_int filters = m_filters;
-   auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
+   auto [output_h, output_w] = getOutputHeightWidth();
 
    int N_ELEMENTS = output_h*output_w*filters*other.m_count;
    cl::NDRange global( N_ELEMENTS );
    cl::Buffer in_buffer = parallelPad(other.m_buffer, other.getCount());
+   auto [padded_h, padded_w] = getPaddedHeightWidth();
    cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
        
    try {
       parallel_convolution_kernel.setArg( 0,  m_buffer );
-      parallel_convolution_kernel.setArg( 1,  other.m_buffer);
+      parallel_convolution_kernel.setArg( 1,  in_buffer);
       parallel_convolution_kernel.setArg( 2,  out_buffer );
       parallel_convolution_kernel.setArg( 3,  convkernel_w );
       parallel_convolution_kernel.setArg( 4,  convkernel_h );
-      parallel_convolution_kernel.setArg( 5,  input_w );
-      parallel_convolution_kernel.setArg( 6,  input_h );
+      parallel_convolution_kernel.setArg( 5,  static_cast<cl_int>(padded_w));
+      parallel_convolution_kernel.setArg( 6,  static_cast<cl_int>(padded_h));
       parallel_convolution_kernel.setArg( 7,  channels );
       parallel_convolution_kernel.setArg( 8,  filters );
       parallel_convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
@@ -122,15 +121,15 @@ Mat ConvKernel::operator* (const Mat &other) const
 {
    cl_int convkernel_w = m_width;
    cl_int convkernel_h = m_height;
-   cl_int input_w = m_input_width;     // can't get input_w, input_h from input `other`!
-   cl_int input_h = m_input_height;    // input is a Nx1 column
    cl_int channels = m_channels;
    cl_int filters = m_filters;
-   auto [output_h, output_w] = getOutputHeightWidth(convkernel_h, convkernel_w, m_padding, input_h, input_w);
+   auto [output_h, output_w] = getOutputHeightWidth();
 
    int N_ELEMENTS = output_h*output_w*m_filters;
    cl::NDRange global( N_ELEMENTS );
    cl::Buffer in_buffer = pad(other.m_buffer);
+   auto [padded_h, padded_w] = getPaddedHeightWidth();
+
    cl::Buffer out_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
        
    try {
@@ -139,8 +138,8 @@ Mat ConvKernel::operator* (const Mat &other) const
       convolution_kernel.setArg( 2,  out_buffer );
       convolution_kernel.setArg( 3,  convkernel_w );
       convolution_kernel.setArg( 4,  convkernel_h );
-      convolution_kernel.setArg( 5,  input_w );
-      convolution_kernel.setArg( 6,  input_h );
+      convolution_kernel.setArg( 5,  static_cast<cl_int>(padded_w));
+      convolution_kernel.setArg( 6,  static_cast<cl_int>(padded_h));
       convolution_kernel.setArg( 7,  channels );
       convolution_kernel.setArg( 8,  filters );
       convolution_kernel.setArg( 9,  static_cast<cl_int>(output_w));
