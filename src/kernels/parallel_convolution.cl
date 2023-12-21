@@ -22,7 +22,7 @@ kernel void parallel_convolution( global float* CONVKERNEL,
     int output = idx/total_output_elements;
     int filter = (idx%total_output_elements) / output_elements;
 
-    int out_row = ((idx%total_output_elements) % output_elements) / output_h;
+    int out_row = ((idx%total_output_elements) % output_elements) / output_w;
     int out_col = ((idx%total_output_elements) % output_elements) % output_w;
     
     float total = 0;

@@ -42,5 +42,7 @@ extern cl::Kernel parallel_convolution_kernel;
 extern cl::Kernel rotate_conv_kernel;
 extern cl::Kernel pad_kernel;
 extern cl::Kernel parallel_pad_kernel;
+extern cl::Kernel transpose_conv_kernel;
+extern cl::Kernel parallel_transpose_conv_kernel;
 
 void ocl_init();

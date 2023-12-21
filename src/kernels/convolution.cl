@@ -18,7 +18,7 @@ kernel void convolution( global float* CONVKERNEL,
 
     int filter = idx / output_elements;
 
-    int out_row = (idx % output_elements) / output_h;
+    int out_row = (idx % output_elements) / output_w;
     int out_col = (idx % output_elements) % output_w;
     
     float total = 0;

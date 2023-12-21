@@ -25,37 +25,36 @@ int main()
    int channels = 2;
    int filters = 2;
 
-   Mat input {5*5*channels,1,std::vector<float>{
+   Mat output {5*5*filters,1,std::vector<float>{
       0,0,0,0,0,
-      0,0,0,0,0,
-      0,0,1,0,0,
-      0,0,0,0,0,
+      0,2,2,2,0,
+      0,2,2,2,0,
+      0,2,2,2,0,
       0,0,0,0,0,
 
       0,0,0,0,0,
-      0,0,0,0,0,
-      0,0,1,0,0,
-      0,0,0,0,0,
+      0,2,2,2,0,
+      0,2,2,2,0,
+      0,2,2,2,0,
       0,0,0,0,0,
    }};
 
-   ParallelMat inputs{{input, input}};
-
    ConvKernel conv_kernel {channels,3,3,filters, SAME,5,5,Mat::ones(3*3*filters,1)};
 
-   ParallelMat outputs = conv_kernel * inputs;
+   ParallelMat outputs {{output, output}};
+   ParallelMat inputs = conv_kernel ^ outputs;
 
-   for (Mat output : outputs.toVector())
+   for (Mat input : inputs.toVector())
    {
-      auto vals = output.getVals();
-      for (int filter = 0; filter < filters; filter++)
+      auto vals = input.getVals();
+      for (int channel = 0; channel < channels; channel++)
       {   
          for (int row = 0; row < 5; row++)
          {
             std::string delim = "";
             for (int col = 0; col < 5; col++)
             {
-               std::cout << delim << vals[filter*5*5 + row*5 + col];
+               std::cout << delim << vals[channel*5*5 + row*5 + col];
                delim = ", ";
             }
             std::cout << '\n';
@@ -64,7 +63,6 @@ int main()
       }
       std::cout << "---------------\n";
    }
-
 }
 
 

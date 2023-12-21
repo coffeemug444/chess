@@ -153,14 +153,155 @@ Mat ConvKernel::operator* (const Mat &other) const
    return Mat(output_w*output_h*filters, 1, out_buffer);
 }
 
+
+Mat ConvKernel::operator^(const Mat& other) const
+{
+   auto [output_h, output_w] = getOutputHeightWidth();
+   cl::Buffer out_buffer = [this, other, &output_h, &output_w](){
+      if (m_padding == SAME) 
+      {
+         output_w += m_width - 1;
+         output_h += m_height - 1;
+         return pad(other.m_buffer);
+      }
+      else
+      {
+         int w_padding = m_width - 1;
+         int h_padding = m_height - 1;
+
+         int l = (w_padding+1) / 2;
+         int r = w_padding / 2;
+         int u = (h_padding+1) / 2;
+         int d = h_padding / 2;
+
+         output_w += l + r;
+         output_h += u + d;
+
+         return pad(other.m_buffer, l, r, u, d);
+      }
+   }();
+
+   cl_int convkernel_w = m_width;
+   cl_int convkernel_h = m_height;
+   cl_int channels = m_channels;
+   cl_int filters = m_filters;
+
+   int N_ELEMENTS = m_input_height*m_input_width*m_channels;
+   cl::NDRange global( N_ELEMENTS );
+
+   cl::Buffer in_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+       
+   try {
+      transpose_conv_kernel.setArg( 0,  m_buffer );
+      transpose_conv_kernel.setArg( 1,  in_buffer);
+      transpose_conv_kernel.setArg( 2,  out_buffer );
+      transpose_conv_kernel.setArg( 3,  convkernel_w );
+      transpose_conv_kernel.setArg( 4,  convkernel_h );
+      transpose_conv_kernel.setArg( 5,  static_cast<cl_int>(m_input_width));
+      transpose_conv_kernel.setArg( 6,  static_cast<cl_int>(m_input_height));
+      transpose_conv_kernel.setArg( 7,  channels );
+      transpose_conv_kernel.setArg( 8,  filters );
+      transpose_conv_kernel.setArg( 9,  static_cast<cl_int>(output_w));
+      transpose_conv_kernel.setArg( 10, static_cast<cl_int>(output_h));
+
+      ocl_queue.enqueueNDRangeKernel( transpose_conv_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in convKernel convolution: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return Mat(N_ELEMENTS, 1, in_buffer);
+}
+
+
+ParallelMat ConvKernel::operator^(const ParallelMat& other) const
+{
+   auto [output_h, output_w] = getOutputHeightWidth();
+   cl::Buffer out_buffer = [this, other, &output_h, &output_w](){
+      if (m_padding == SAME) 
+      {
+         output_w += m_width - 1;
+         output_h += m_height - 1;
+         return pad(other.m_buffer);
+      }
+      else
+      {
+         int w_padding = m_width - 1;
+         int h_padding = m_height - 1;
+
+         int l = (w_padding+1) / 2;
+         int r = w_padding / 2;
+         int u = (h_padding+1) / 2;
+         int d = h_padding / 2;
+
+         output_w += l + r;
+         output_h += u + d;
+
+         return pad(other.m_buffer, l, r, u, d);
+      }
+   }();
+
+   cl_int convkernel_w = m_width;
+   cl_int convkernel_h = m_height;
+   cl_int channels = m_channels;
+   cl_int filters = m_filters;
+
+   int N_ELEMENTS = m_input_height*m_input_width*m_channels*other.getCount();
+   cl::NDRange global( N_ELEMENTS );
+
+   cl::Buffer in_buffer(ocl_context, CL_MEM_READ_WRITE, N_ELEMENTS*sizeof(float));
+       
+   try {
+      parallel_transpose_conv_kernel.setArg( 0,  m_buffer );
+      parallel_transpose_conv_kernel.setArg( 1,  in_buffer);
+      parallel_transpose_conv_kernel.setArg( 2,  out_buffer );
+      parallel_transpose_conv_kernel.setArg( 3,  convkernel_w );
+      parallel_transpose_conv_kernel.setArg( 4,  convkernel_h );
+      parallel_transpose_conv_kernel.setArg( 5,  static_cast<cl_int>(m_input_width));
+      parallel_transpose_conv_kernel.setArg( 6,  static_cast<cl_int>(m_input_height));
+      parallel_transpose_conv_kernel.setArg( 7,  channels );
+      parallel_transpose_conv_kernel.setArg( 8,  filters );
+      parallel_transpose_conv_kernel.setArg( 9,  static_cast<cl_int>(output_w));
+      parallel_transpose_conv_kernel.setArg( 10, static_cast<cl_int>(output_h));
+
+      ocl_queue.enqueueNDRangeKernel( parallel_transpose_conv_kernel, cl::NullRange, global );
+   }
+   catch(cl::Error& err) {
+      std::cout << "Error in convKernel convolution: " << err.what() << "(" << getErrorString(err.err()) << ")" << std::endl;
+   }
+   return ParallelMat(N_ELEMENTS/other.getCount(), 1, other.getCount(), in_buffer);
+}
+
 cl::Buffer ConvKernel::pad(const cl::Buffer& input) const
 {  
    if (m_padding == VALID) return input;
 
-   cl_int l_padding = m_width / 2;
-   cl_int r_padding = (m_width - 1) - l_padding;
-   cl_int u_padding = m_height / 2;
-   cl_int d_padding = (m_height - 1) - u_padding;
+   cl_int l = m_width / 2;
+   cl_int r = (m_width - 1) - l;
+   cl_int u = m_height / 2;
+   cl_int d = (m_height - 1) - u;
+
+   return pad(input, l, r, u, d);
+}
+
+cl::Buffer ConvKernel::parallelPad(const cl::Buffer& input, int num) const
+{  
+   if (m_padding == VALID) return input;
+
+   int l = m_width / 2;
+   int r = (m_width - 1) - l;
+   int u = m_height / 2;
+   int d = (m_height - 1) - u;
+
+   return parallelPad(input, num, l, r, u, d);
+}
+
+
+cl::Buffer ConvKernel::pad(const cl::Buffer& input, int l, int r, int u, int d) const
+{
+   cl_int l_padding = l;
+   cl_int r_padding = r;
+   cl_int u_padding = u;
+   cl_int d_padding = d;
 
    cl_int padded_w = l_padding + r_padding + m_input_width;
    cl_int padded_h = u_padding + d_padding + m_input_height;
@@ -194,14 +335,12 @@ cl::Buffer ConvKernel::pad(const cl::Buffer& input) const
    return out_buffer;
 }
 
-cl::Buffer ConvKernel::parallelPad(const cl::Buffer& input, int num) const
-{  
-   if (m_padding == VALID) return input;
-
-   cl_int l_padding = m_width / 2;
-   cl_int r_padding = (m_width - 1) - l_padding;
-   cl_int u_padding = m_height / 2;
-   cl_int d_padding = (m_height - 1) - u_padding;
+cl::Buffer ConvKernel::parallelPad(const cl::Buffer& input, int num, int l, int r, int u, int d) const
+{
+   cl_int l_padding = l;
+   cl_int r_padding = r;
+   cl_int u_padding = u;
+   cl_int d_padding = d;
 
    cl_int padded_w = l_padding + r_padding + m_input_width;
    cl_int padded_h = u_padding + d_padding + m_input_height;

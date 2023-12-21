@@ -41,11 +41,11 @@ public:
 
    ParallelMat operator* (const ParallelMat &other) const;
    Mat operator* (const Mat &other) const;
+   
+   ParallelMat operator^(const ParallelMat& other) const;
+   Mat operator^(const Mat& other) const;
 
    ConvKernel rotated() const;
-
-   cl::Buffer pad(const cl::Buffer& input) const;
-   cl::Buffer parallelPad(const cl::Buffer& input, int num) const;
 
 private:
    ConvKernel (unsigned channels,
@@ -56,6 +56,12 @@ private:
                unsigned input_height,
                unsigned input_width,
                const cl::Buffer& vals);
+
+   cl::Buffer pad(const cl::Buffer& input) const;
+   cl::Buffer parallelPad(const cl::Buffer& input, int num) const;
+
+   cl::Buffer pad(const cl::Buffer& input, int l, int r, int u, int d) const;
+   cl::Buffer parallelPad(const cl::Buffer& input, int num, int l, int r, int u, int d) const;
 
 
    cl::Buffer m_buffer;

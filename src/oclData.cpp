@@ -41,7 +41,8 @@ cl::Kernel parallel_convolution_kernel;
 cl::Kernel rotate_conv_kernel;
 cl::Kernel pad_kernel;
 cl::Kernel parallel_pad_kernel;
-
+cl::Kernel transpose_conv_kernel;
+cl::Kernel parallel_transpose_conv_kernel;
 
 void ocl_init()
 {
@@ -88,7 +89,9 @@ void ocl_init()
       "kernels/parallel_convolution.cl",
       "kernels/rotate_conv.cl",
       "kernels/pad.cl",
-      "kernels/parallel_pad.cl"
+      "kernels/parallel_pad.cl",
+      "kernels/transpose_convolution.cl",
+      "kernels/parallel_transpose_convolution.cl"
    };
    cl::Program::Sources sources;
    for (auto& path : sourcePaths) {
@@ -133,6 +136,8 @@ void ocl_init()
    rotate_conv_kernel               = cl::Kernel(program, "rotate_conv");
    pad_kernel                       = cl::Kernel(program, "pad");
    parallel_pad_kernel              = cl::Kernel(program, "parallel_pad");
+   transpose_conv_kernel            = cl::Kernel(program, "transpose_convolution");
+   parallel_transpose_conv_kernel   = cl::Kernel(program, "parallel_transpose_convolution");
 
    ocl_queue.finish();
 
